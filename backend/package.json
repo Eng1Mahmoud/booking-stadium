@@ -12,11 +12,10 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--use-system-ca nodemon",
     "build": "tsc",
-    "start": "cross-env NODE_OPTIONS=--use-system-ca node ./dist/app.js",
+    "start": "node ./dist/app.js",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "seed:admin": "cross-env NODE_OPTIONS=--use-system-ca tsx ./src/scripts/seedAdmin.ts"
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
