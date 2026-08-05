@@ -1,0 +1,87 @@
+@import 'tailwindcss';
+/* Cairo covers both Arabic and Latin glyphs (numerals, the odd English word) in one family,
+   so headings and body text share a single face instead of falling back mid-word. */
+@import '@fontsource/cairo/arabic-400.css';
+@import '@fontsource/cairo/arabic-500.css';
+@import '@fontsource/cairo/arabic-600.css';
+@import '@fontsource/cairo/arabic-700.css';
+@import '@fontsource/cairo/arabic-900.css';
+@import '@fontsource/cairo/latin-400.css';
+@import '@fontsource/cairo/latin-500.css';
+@import '@fontsource/cairo/latin-600.css';
+@import '@fontsource/cairo/latin-700.css';
+@import '@fontsource/cairo/latin-900.css';
+/* Kick-off times and phone numbers stay Latin digits and read left-to-right even in an RTL page. */
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+
+/**
+ * Design system: "Night Pitch" — a floodlit-match aesthetic.
+ * Slot states borrow the referee's card vocabulary (yellow = caution/
+ * blocked, red = stop/booked) since that reads instantly to anyone who's
+ * watched a match. Everything else stays quiet so that device carries
+ * the personality. Committed dark theme — like a scoreboard, this app
+ * doesn't switch to "day mode".
+ */
+@theme {
+  --font-display: 'Cairo', sans-serif;
+  --font-sans: 'Cairo', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --color-turf-950: #0a2417;
+  --color-turf-900: #0e2e1c;
+  --color-turf-800: #123420;
+  --color-turf-700: #1c4a2c;
+  --color-turf-600: #295c3a;
+
+  --color-chalk-50: #f6f8f3;
+  --color-chalk-300: #c3d2c8;
+  --color-chalk-400: #9fb6a6;
+  --color-chalk-600: #6c8577;
+
+  --color-grass-400: #63e6a0;
+  --color-grass-500: #34c97a;
+  --color-grass-600: #219a5b;
+
+  --color-card-yellow: #f2c230;
+  --color-card-yellow-dim: #7a6318;
+  --color-card-red: #e5484d;
+  --color-card-red-dim: #6a2325;
+
+  --color-floodlight-100: #fff6d8;
+}
+
+body {
+  @apply bg-turf-950 text-chalk-50 antialiased;
+  font-family: var(--font-sans);
+  background-image: radial-gradient(circle at 50% -10%, rgba(255, 246, 216, 0.06), transparent 55%);
+}
+
+/* Wrap kick-off times, phone numbers, and other digit runs in this inside the
+   RTL page so they always read left-to-right, independent of browser bidi quirks. */
+.ltr-embed {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+::selection {
+  background: var(--color-grass-500);
+  color: var(--color-turf-950);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-grass-400);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
