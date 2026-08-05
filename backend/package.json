@@ -10,7 +10,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--use-system-ca nodemon",
+    "dev": "nodemon",
     "build": "tsc",
     "start": "node ./dist/app.js",
     "lint": "eslint \"src/**/*.ts\"",
