@@ -1,15 +1,5 @@
 import mongoose from 'mongoose';
 
-/**
- * Opens the one connection the app uses.
- *
- * No retry loop here: the driver already retries internally for the whole of
- * `serverSelectionTimeoutMS`, so a Mongo that is merely slow to come up (a
- * container still starting, say) needs no help from us. Still unreachable
- * after that window means it is down rather than slow, and exiting hands the
- * decision to whatever supervises the process — nodemon, Docker, systemd —
- * rather than sitting here in a broken state.
- */
 export default async function connectDB(): Promise<void> {
   mongoose.set('strictQuery', true);
 
