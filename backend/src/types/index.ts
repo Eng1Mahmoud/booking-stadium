@@ -4,6 +4,10 @@ export type AdminRole = 'admin' | 'superadmin';
 export interface JwtPayload {
   id: string;
   role: AdminRole;
+  /** Anti-CSRF value minted at login. Sealed inside the httpOnly cookie, and
+   *  handed to the frontend separately so it can echo it back in a header —
+   *  see middlewares/csrf.ts. */
+  csrf: string;
 }
 
 export type BookingStatus = 'confirmed' | 'cancelled';

@@ -11,5 +11,8 @@ const router = Router();
 
 router.post('/login', loginLimiter, validate(loginSchema), asyncHandler(authController.login));
 router.get('/me', requireAuth, asyncHandler(authController.me));
+// Deliberately unguarded: clearing a cookie that is already expired or invalid
+// should still succeed, otherwise a stale session can never be tidied away.
+router.post('/logout', asyncHandler(authController.logout));
 
 export default router;

@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import mongoSanitize from 'express-mongo-sanitize';
 import connectDB from './config/db.js';
 import { apiLimiter } from './middlewares/rateLimiters.js';
+import { CSRF_HEADER, verifyCsrf } from './middlewares/csrf.js';
 import { errorHandler, notFound } from './middlewares/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -27,17 +29,23 @@ app.use(helmet()); // sets protective response headers (clickjacking, MIME sniff
 app.use(
   cors({
     // Comma-separated list, e.g. "http://localhost:5173,https://example.com".
+    // Must stay an explicit allowlist, never '*': the browser refuses to send
+    // the session cookie to a wildcard origin, and the CSRF defence below leans
+    // on this list to keep other sites out of the response body.
     origin: process.env
       .CORS_ORIGIN!.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', CSRF_HEADER],
   }),
 );
 app.use(express.json({ limit: '10kb' })); // parses JSON bodies into req.body
+app.use(cookieParser()); // fills req.cookies — must precede anything reading the session
 app.use(mongoSanitize()); // strips $/. from input — stops Mongo query injection
 app.use(hpp()); // collapses duplicated query params (?date=a&date=b)
 app.use(apiLimiter); // coarse per-IP request cap
+app.use(verifyCsrf); // rejects cookie-authenticated writes without a matching header
 
 // --- Routes. The prefix here + the paths inside each file = the full URL. ---
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' })); // uptime check

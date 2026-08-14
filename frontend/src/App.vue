@@ -6,9 +6,10 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-function handleLogout() {
-  authStore.logout()
-  // Leave the dashboard explicitly — clearing the token alone doesn't re-run the guard.
+async function handleLogout() {
+  // Awaited so we leave only once the server has actually cleared the cookie.
+  await authStore.logout()
+  // Leave the dashboard explicitly — clearing the session alone doesn't re-run the guard.
   router.push('/')
 }
 </script>

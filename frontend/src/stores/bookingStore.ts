@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
 import dayjs from 'dayjs'
 import { api, getErrorMessage } from '@/services/api'
 import type {
@@ -14,192 +13,174 @@ import type {
 // Re-exported so existing importers keep working; the definition lives in @/types.
 export type { TimelineSlot }
 
-export const useBookingStore = defineStore('booking', () => {
-  // --- Player-facing state ---
-  const slots = ref<AvailabilitySlot[]>([])
-  /** Selected day plus the following early hours, so a range can cross midnight. */
-  const timeline = ref<TimelineSlot[]>([])
-  const isLoadingSlots = ref(false)
-  const isSubmittingBooking = ref(false)
-  const error = ref<string | null>(null)
+export const useBookingStore = defineStore('booking', {
+  state: () => ({
+    // --- Player-facing state ---
+    slots: [] as AvailabilitySlot[],
+    /** Selected day plus the following early hours, so a range can cross midnight. */
+    timeline: [] as TimelineSlot[],
+    isLoadingSlots: false,
+    isSubmittingBooking: false,
+    error: null as string | null,
 
-  const config = ref<SiteConfig | null>(null)
+    config: null as SiteConfig | null,
 
-  // --- Admin state ---
-  const adminBookings = ref<Booking[]>([])
-  const blockedSlots = ref<BlockedSlot[]>([])
-  const isLoadingAdminData = ref(false)
+    // --- Admin state ---
+    adminBookings: [] as Booking[],
+    blockedSlots: [] as BlockedSlot[],
+    isLoadingAdminData: false,
+  }),
 
-  async function fetchConfig(): Promise<void> {
-    try {
-      const { data } = await api.get<SiteConfig>('/settings')
-      config.value = data
-    } catch (err) {
-      error.value = getErrorMessage(err)
-    }
-  }
+  actions: {
+    async fetchConfig(): Promise<void> {
+      try {
+        const { data } = await api.get<SiteConfig>('/settings')
+        this.config = data
+      } catch (err) {
+        this.error = getErrorMessage(err)
+      }
+    },
 
-  /**
-   * Loads the selected day and the one after it, then stitches them into a
-   * single timeline: the full day, followed by the next morning up to the
-   * longest bookable range. That is what lets someone start at 11 م and carry
-   * on into 1 ص without changing date.
-   */
-  async function fetchAvailability(date: string): Promise<void> {
-    isLoadingSlots.value = true
-    error.value = null
-    try {
-      const nextDate = dayjs(date).add(1, 'day').format('YYYY-MM-DD')
-      const [today, tomorrow] = await Promise.all([
-        api.get<AvailabilitySlot[]>('/bookings/availability', { params: { date } }),
-        api.get<AvailabilitySlot[]>('/bookings/availability', { params: { date: nextDate } }),
-      ])
+    /**
+     * Loads the selected day and the one after it, then stitches them into a
+     * single timeline: the full day, followed by the next morning up to the
+     * longest bookable range. That is what lets someone start at 11 م and carry
+     * on into 1 ص without changing date.
+     */
+    async fetchAvailability(date: string): Promise<void> {
+      this.isLoadingSlots = true
+      this.error = null
+      try {
+        const nextDate = dayjs(date).add(1, 'day').format('YYYY-MM-DD')
+        const [today, tomorrow] = await Promise.all([
+          api.get<AvailabilitySlot[]>('/bookings/availability', { params: { date } }),
+          api.get<AvailabilitySlot[]>('/bookings/availability', { params: { date: nextDate } }),
+        ])
 
-      slots.value = today.data
+        this.slots = today.data
 
-      const maxMinutes = config.value?.maxBookingMinutes ?? 360
-      const overhang = maxMinutes / (config.value?.slotMinutes ?? 30)
+        const maxMinutes = this.config?.maxBookingMinutes ?? 360
+        const overhang = maxMinutes / (this.config?.slotMinutes ?? 30)
 
-      timeline.value = [
-        ...today.data.map((slot) => ({ ...slot, date, isNextDay: false })),
-        ...tomorrow.data
-          .slice(0, overhang)
-          .map((slot) => ({ ...slot, date: nextDate, isNextDay: true })),
-      ]
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      slots.value = []
-      timeline.value = []
-    } finally {
-      isLoadingSlots.value = false
-    }
-  }
+        // Arrow callbacks throughout: a `function` here would lose `this`.
+        this.timeline = [
+          ...today.data.map((slot) => ({ ...slot, date, isNextDay: false })),
+          ...tomorrow.data
+            .slice(0, overhang)
+            .map((slot) => ({ ...slot, date: nextDate, isNextDay: true })),
+        ]
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        this.slots = []
+        this.timeline = []
+      } finally {
+        this.isLoadingSlots = false
+      }
+    },
 
-  async function createBooking(input: NewBookingInput): Promise<boolean> {
-    isSubmittingBooking.value = true
-    error.value = null
-    try {
-      await api.post<Booking>('/bookings', input)
-      await fetchAvailability(input.date)
-      return true
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      return false
-    } finally {
-      isSubmittingBooking.value = false
-    }
-  }
+    async createBooking(input: NewBookingInput): Promise<boolean> {
+      this.isSubmittingBooking = true
+      this.error = null
+      try {
+        await api.post<Booking>('/bookings', input)
+        await this.fetchAvailability(input.date)
+        return true
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        return false
+      } finally {
+        this.isSubmittingBooking = false
+      }
+    },
 
-  async function fetchAdminBookings(date?: string): Promise<void> {
-    isLoadingAdminData.value = true
-    error.value = null
-    try {
-      const { data } = await api.get<Booking[]>('/bookings/admin', { params: date ? { date } : {} })
-      adminBookings.value = data
-    } catch (err) {
-      error.value = getErrorMessage(err)
-    } finally {
-      isLoadingAdminData.value = false
-    }
-  }
+    async fetchAdminBookings(date?: string): Promise<void> {
+      this.isLoadingAdminData = true
+      this.error = null
+      try {
+        const { data } = await api.get<Booking[]>('/bookings/admin', {
+          params: date ? { date } : {},
+        })
+        this.adminBookings = data
+      } catch (err) {
+        this.error = getErrorMessage(err)
+      } finally {
+        this.isLoadingAdminData = false
+      }
+    },
 
-  async function createManualBooking(input: NewBookingInput): Promise<boolean> {
-    error.value = null
-    try {
-      await api.post('/bookings/admin', input)
-      await fetchAdminBookings(input.date)
-      return true
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      return false
-    }
-  }
+    async createManualBooking(input: NewBookingInput): Promise<boolean> {
+      this.error = null
+      try {
+        await api.post('/bookings/admin', input)
+        await this.fetchAdminBookings(input.date)
+        return true
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        return false
+      }
+    },
 
-  async function cancelBooking(id: string, date?: string): Promise<boolean> {
-    error.value = null
-    try {
-      await api.patch(`/bookings/admin/${id}/cancel`)
-      await fetchAdminBookings(date)
-      return true
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      return false
-    }
-  }
+    async cancelBooking(id: string, date?: string): Promise<boolean> {
+      this.error = null
+      try {
+        await api.patch(`/bookings/admin/${id}/cancel`)
+        await this.fetchAdminBookings(date)
+        return true
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        return false
+      }
+    },
 
-  async function fetchBlockedSlots(date: string): Promise<void> {
-    error.value = null
-    try {
-      const { data } = await api.get<BlockedSlot[]>('/blocked-slots/admin', { params: { date } })
-      blockedSlots.value = data
-    } catch (err) {
-      error.value = getErrorMessage(err)
-    }
-  }
+    async fetchBlockedSlots(date: string): Promise<void> {
+      this.error = null
+      try {
+        const { data } = await api.get<BlockedSlot[]>('/blocked-slots/admin', { params: { date } })
+        this.blockedSlots = data
+      } catch (err) {
+        this.error = getErrorMessage(err)
+      }
+    },
 
-  async function blockSlot(input: {
-    date: string
-    startTime: string
-    endTime: string
-    reason?: string
-  }) {
-    error.value = null
-    try {
-      await api.post('/blocked-slots/admin', input)
-      await fetchBlockedSlots(input.date)
-      return true
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      return false
-    }
-  }
+    async blockSlot(input: {
+      date: string
+      startTime: string
+      endTime: string
+      reason?: string
+    }): Promise<boolean> {
+      this.error = null
+      try {
+        await api.post('/blocked-slots/admin', input)
+        await this.fetchBlockedSlots(input.date)
+        return true
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        return false
+      }
+    },
 
-  async function unblockSlot(id: string, date?: string): Promise<boolean> {
-    error.value = null
-    try {
-      await api.delete(`/blocked-slots/admin/${id}`)
-      if (date) await fetchBlockedSlots(date)
-      return true
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      return false
-    }
-  }
+    async unblockSlot(id: string, date?: string): Promise<boolean> {
+      this.error = null
+      try {
+        await api.delete(`/blocked-slots/admin/${id}`)
+        if (date) await this.fetchBlockedSlots(date)
+        return true
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        return false
+      }
+    },
 
-  async function updateSettings(patch: {
-    pricePerHour?: number
-    currency?: string
-  }): Promise<boolean> {
-    error.value = null
-    try {
-      await api.patch('/settings', patch)
-      await fetchConfig()
-      return true
-    } catch (err) {
-      error.value = getErrorMessage(err)
-      return false
-    }
-  }
-
-  return {
-    slots,
-    timeline,
-    config,
-    isLoadingSlots,
-    isSubmittingBooking,
-    error,
-    adminBookings,
-    blockedSlots,
-    isLoadingAdminData,
-    fetchConfig,
-    fetchAvailability,
-    createBooking,
-    fetchAdminBookings,
-    createManualBooking,
-    cancelBooking,
-    fetchBlockedSlots,
-    blockSlot,
-    unblockSlot,
-    updateSettings,
-  }
+    async updateSettings(patch: { pricePerHour?: number; currency?: string }): Promise<boolean> {
+      this.error = null
+      try {
+        await api.patch('/settings', patch)
+        await this.fetchConfig()
+        return true
+      } catch (err) {
+        this.error = getErrorMessage(err)
+        return false
+      }
+    },
+  },
 })

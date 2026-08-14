@@ -1,19 +1,27 @@
 import axios, { type AxiosError } from 'axios'
-import { tokenStorage } from './tokenStorage'
+import { manageCookie } from './manageCookie'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL
 
 export const api = axios.create({
   baseURL,
   timeout: 10_000,
+  // The session cookie is set by the API's origin, not this one, so the browser
+  // treats it as third-party and withholds it unless every request opts in here.
+  withCredentials: true,
 })
 
-// Attach the admin JWT to every request when we have one. Public endpoints
-// simply ignore the header, so one instance is enough for both.
+const SAFE_METHODS = new Set(['get', 'head', 'options'])
+
+// Nothing attaches the session any more — the browser sends the httpOnly cookie
+// on its own. What we do have to attach is the CSRF value the API minted at
+// login, on the writes it guards. Public endpoints send it too and ignore it.
 api.interceptors.request.use((config) => {
-  const token = tokenStorage.get()
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (SAFE_METHODS.has((config.method ?? 'get').toLowerCase())) return config
+
+  const csrfToken = manageCookie.get()
+  if (csrfToken) {
+    config.headers['X-CSRF-Token'] = csrfToken
   }
   return config
 })

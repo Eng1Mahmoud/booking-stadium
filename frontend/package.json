@@ -20,6 +20,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.19.0",
     "dayjs": "^1.11.21",
+    "js-cookie": "^3.0.8",
     "pinia": "^4.0.2",
     "tailwindcss": "^4.3.3",
     "vue": "^3.5.40",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/eslint-config-typescript": "^14.9.0",

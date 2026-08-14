@@ -1,5 +1,6 @@
-/** Signing in: checking a password and issuing the JWT the frontend stores.
- * Pure logic — no req/res here. */
+/** Signing in: checking a password and issuing the JWT the controller puts in
+ * an httpOnly cookie. Pure logic — no req/res here. */
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Admin from '../models/Admin.js';
@@ -18,6 +19,7 @@ class AuthService {
     password: string,
   ): Promise<{
     token: string;
+    csrfToken: string;
     username: string;
     role: AdminRole;
     fullName?: string;
@@ -42,7 +44,11 @@ class AuthService {
       throw new AppError('تم إيقاف هذا الحساب. تواصل مع المدير العام.', 403);
     }
 
-    const payload: JwtPayload = { id: admin.id, role: admin.role };
+    // Travels inside the token *and* back to the caller, so a later request can
+    // prove it came from our frontend and not just from the user's browser.
+    const csrfToken = randomBytes(32).toString('hex');
+
+    const payload: JwtPayload = { id: admin.id, role: admin.role, csrf: csrfToken };
     const token = jwt.sign(payload, process.env.JWT_SECRET!, {
       expiresIn: process.env.JWT_EXPIRES_IN ?? '1d',
     } as jwt.SignOptions);
@@ -54,6 +60,7 @@ class AuthService {
 
     return {
       token,
+      csrfToken,
       username: admin.username,
       role: admin.role,
       fullName: admin.fullName,

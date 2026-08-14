@@ -252,7 +252,14 @@ leaves `tsc` with nothing to compile against.
 Set `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, and `CORS_ORIGIN` as
 environment variables in the Render dashboard (they're marked `sync: false` so
 real values stay out of the repo). `CORS_ORIGIN` must contain your deployed
-frontend URL, or the browser will block every request.
+frontend URL, or the browser will block every request. It has to stay an exact
+allowlist — never `*` — because the browser refuses to send the session cookie to
+a wildcard origin.
+
+`NODE_ENV=production` is not optional here: it's what switches the session cookie
+to `SameSite=None; Secure`. Without it the cookie is `Lax` and the browser drops
+it on every cross-site request, so admin login fails while everything else looks
+fine.
 
 ### Frontend → Vercel
 
@@ -275,8 +282,30 @@ Set the Vercel project's **Root Directory** to `frontend`, and
   credentials.
 - Rate limits: 300 requests / 15 min API-wide, 10 / 15 min on login, 20 / 10 min
   on public booking creation.
-- The admin JWT is held in `sessionStorage`, so it's wiped when the tab closes.
-  This is still JS-readable storage — moving to an httpOnly cookie would remove
-  the XSS-exfiltration risk entirely, at the cost of needing CSRF protection.
-  A reasonable tradeoff for this bearer-token API, and the natural next hardening
-  step.
+- The admin JWT lives in an **httpOnly cookie** (`booking_admin_token`), so no
+  script on the page can read it. An XSS payload can still act as the admin while
+  the page is open, but it can no longer walk off with a token that keeps working
+  elsewhere. `Max-Age` is one day, matched to `JWT_EXPIRES_IN`, so the session
+  survives a browser restart.
+- Frontend and API sit on **different sites** (Vercel ↔ Render), so the cookie is
+  `SameSite=None; Secure` in production and `Lax` locally, where both ends are
+  localhost. Two consequences worth knowing:
+  - **Safari, iOS and Brave block third-party cookies by default, so admin login
+    will not work there.** Players are unaffected — public booking needs no
+    session. Putting both ends on one site (a Vercel rewrite proxying `/api`, or
+    a shared parent domain) is what would fix it.
+  - `SameSite=None` gives up the cross-site protection `Lax` provides for free,
+    which is why CSRF protection is mandatory here rather than optional.
+- **CSRF:** login mints a random value, seals it inside the JWT and returns it in
+  the response body. The frontend keeps its copy in a first-party cookie on its
+  own origin — the session cookie belongs to the API's domain and is unreadable
+  here, so the usual double-submit trick of reading the server's own cookie is
+  not available across sites — and echoes it back in `X-CSRF-Token` on every
+  write; [`middlewares/csrf.ts`](backend/src/middlewares/csrf.ts) rejects any
+  cookie-authenticated `POST`/`PATCH`/`DELETE` whose header doesn't match. A
+  forged request from another site carries the cookie but cannot learn the value
+  — the cookie is unreadable and CORS keeps the login body to our own origin.
+  Requests with no session cookie are exempt, so players still book without
+  signing in.
+- Signing out is a `POST /api/auth/logout`: only the server can delete a cookie
+  it marked httpOnly.

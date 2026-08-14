@@ -1,14 +1,17 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import Admin from '../models/Admin.js';
+import { AUTH_COOKIE } from '../utils/cookies.js';
 import type { JwtPayload } from '../types/index.js';
 
 /**
  * The "you must be signed in" guard. Put it on any staff-only route.
  *
- * It reads the `Authorization: Bearer <token>` header the frontend attaches in
- * services/api.ts, and on success hangs `req.user` on the request so every
- * handler after it knows who is asking.
+ * It reads the httpOnly session cookie the browser attaches on its own, and on
+ * success hangs `req.user` on the request so every handler after it knows who is
+ * asking. The `Authorization: Bearer` header is still accepted as a fallback for
+ * non-browser callers (curl, scripts), which have no cookie jar and are not
+ * exposed to CSRF in the first place.
  *
  * Note it hits the database rather than trusting the token alone. A JWT stays
  * cryptographically valid until it expires, so a colleague you deactivated at
@@ -22,7 +25,9 @@ export const requireAuth = async (
   next: NextFunction,
 ): Promise<void> => {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  const token =
+    req.cookies?.[AUTH_COOKIE] ??
+    (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined);
 
   if (!token) {
     res.status(401).json({ error: 'غير مصرح' });
@@ -38,7 +43,7 @@ export const requireAuth = async (
       return;
     }
 
-    req.user = { id: admin.id, role: admin.role };
+    req.user = { id: admin.id, role: admin.role, csrf: decoded.csrf };
     next();
   } catch {
     res.status(401).json({ error: 'غير مصرح' });
