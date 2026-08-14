@@ -21,10 +21,17 @@ class SettingsService {
     );
   }
 
-  async update(patch: { pricePerHour?: number; currency?: string }) {
+  async update(patch: {
+    pricePerHour?: number;
+    currency?: string;
+    opensAt?: string;
+    closesAt?: string;
+  }) {
     const settings = await this.get();
     if (patch.pricePerHour !== undefined) settings.pricePerHour = patch.pricePerHour;
     if (patch.currency !== undefined) settings.currency = patch.currency;
+    if (patch.opensAt !== undefined) settings.opensAt = patch.opensAt;
+    if (patch.closesAt !== undefined) settings.closesAt = patch.closesAt;
     await settings.save();
     return settings;
   }
@@ -38,6 +45,8 @@ class SettingsService {
       slotMinutes: SLOT_MINUTES,
       minBookingMinutes: MIN_BOOKING_MINUTES,
       maxBookingMinutes: MAX_BOOKING_MINUTES,
+      opensAt: settings.opensAt,
+      closesAt: settings.closesAt,
     };
   }
 

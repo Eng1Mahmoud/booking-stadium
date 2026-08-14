@@ -11,6 +11,21 @@ export interface RangeRules {
   slotMinutes: number
   minMinutes: number
   maxMinutes: number
+  /**
+   * Count hours outside the pitch's working window as bookable. Off for players,
+   * on for staff: the owner takes bookings outside opening hours by arrangement,
+   * and the API grants staff the same exemption.
+   *
+   * Elapsed hours are deliberately *not* covered by this — those are closed to
+   * everyone.
+   */
+  allowClosed?: boolean
+}
+
+/** A unit somebody may still be given. `closed` counts only for staff. */
+function isFree(slot: TimelineSlot | undefined, allowClosed?: boolean): boolean {
+  if (!slot) return false
+  return slot.status === 'available' || (Boolean(allowClosed) && slot.status === 'closed')
 }
 
 export interface EndOption {
@@ -24,10 +39,15 @@ export interface EndOption {
 }
 
 /** True if every unit in [startIndex, startIndex + units) exists and is free. */
-export function isSpanFree(timeline: TimelineSlot[], startIndex: number, units: number): boolean {
+export function isSpanFree(
+  timeline: TimelineSlot[],
+  startIndex: number,
+  units: number,
+  allowClosed?: boolean,
+): boolean {
   if (startIndex < 0 || units <= 0) return false
   for (let i = startIndex; i < startIndex + units; i += 1) {
-    if (timeline[i]?.status !== 'available') return false
+    if (!isFree(timeline[i], allowClosed)) return false
   }
   return true
 }
@@ -53,7 +73,7 @@ export function endOptionsFor(
   const options: EndOption[] = []
 
   for (let units = 1; units <= maxUnits; units += 1) {
-    if (timeline[startIndex + units - 1]?.status !== 'available') break
+    if (!isFree(timeline[startIndex + units - 1], rules.allowClosed)) break
     if (units < minUnits) continue
 
     const absoluteEnd = startMinutes + units * rules.slotMinutes
@@ -77,5 +97,5 @@ export function hasAnyEnd(
   startIndex: number,
   rules: RangeRules,
 ): boolean {
-  return isSpanFree(timeline, startIndex, rules.minMinutes / rules.slotMinutes)
+  return isSpanFree(timeline, startIndex, rules.minMinutes / rules.slotMinutes, rules.allowClosed)
 }

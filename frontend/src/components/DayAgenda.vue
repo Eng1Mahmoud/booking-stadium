@@ -73,27 +73,18 @@ const RAIL: Record<AgendaBand['kind'], string> = {
         >
           <span class="w-1.5 shrink-0" :class="RAIL[band.kind]" aria-hidden="true" />
 
-          <!-- Free and elapsed time: the whole card books it. Elapsed stays
-               tappable because staff record walk-ins after kick-off. -->
-          <template v-if="band.kind === 'free' || band.kind === 'past'">
+          <!-- Free time: the whole card books it, and إغلاق closes it. -->
+          <template v-if="band.kind === 'free'">
             <button
               type="button"
               class="flex min-h-11 flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-2 py-2.5 text-start transition-colors cursor-pointer hover:bg-turf-800"
               @click="emit('pickFree', { startTime: band.startTime, endTime: band.endTime })"
             >
-              <span
-                class="text-sm font-medium tabular-nums"
-                :class="band.kind === 'past' ? 'text-chalk-600' : 'text-chalk-50'"
-              >
+              <span class="text-sm font-medium tabular-nums text-chalk-50">
                 {{ formatTimeRange(band.startTime, band.endTime) }}
               </span>
               <span class="text-xs text-chalk-400">{{ formatDuration(band.minutes) }}</span>
-              <span
-                class="text-xs font-semibold"
-                :class="band.kind === 'past' ? 'text-chalk-600' : 'text-grass-400'"
-              >
-                {{ band.kind === 'past' ? 'انتهى' : 'متاح' }}
-              </span>
+              <span class="text-xs font-semibold text-grass-400">متاح</span>
             </button>
             <button
               type="button"
@@ -102,6 +93,19 @@ const RAIL: Record<AgendaBand['kind'], string> = {
             >
               إغلاق
             </button>
+          </template>
+
+          <!-- Elapsed time is a record, not a control: both panels refuse hours
+               that have already gone, so tapping one here would open a form that
+               can't accept it. -->
+          <template v-else-if="band.kind === 'past'">
+            <span class="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-2 py-2.5">
+              <span class="text-sm font-medium tabular-nums text-chalk-600">
+                {{ formatTimeRange(band.startTime, band.endTime) }}
+              </span>
+              <span class="text-xs text-chalk-600">{{ formatDuration(band.minutes) }}</span>
+              <span class="text-xs font-semibold text-chalk-600">انتهى</span>
+            </span>
           </template>
 
           <template v-else-if="band.booking">

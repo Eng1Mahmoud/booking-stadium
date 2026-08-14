@@ -11,6 +11,7 @@ import {
   buildSlotKeys,
   computeEnd,
   isValidDuration,
+  isWithinOpenHours,
   keysForDate,
   slotKey,
   toMinutes,
@@ -26,7 +27,7 @@ interface CreateBookingInput {
   playerPhone: string;
 }
 
-export type SlotState = 'available' | 'booked' | 'blocked' | 'passed';
+export type SlotState = 'available' | 'booked' | 'blocked' | 'closed' | 'passed';
 
 export interface AvailabilitySlot {
   startTime: string;
@@ -58,11 +59,12 @@ class BookingService {
   async getAvailability(date: string): Promise<AvailabilitySlot[]> {
     const dayKeys = keysForDate(date);
 
-    const [bookings, blockedSlots] = await Promise.all([
+    const [bookings, blockedSlots, settings] = await Promise.all([
       Booking.find({ status: 'confirmed', slotKeys: { $in: dayKeys } })
         .select('slotKeys')
         .lean(),
       BlockedSlot.find({ date }).lean(),
+      settingsService.get(),
     ]);
 
     const takenKeys = new Set(bookings.flatMap((booking) => booking.slotKeys));
@@ -77,16 +79,21 @@ class BookingService {
       const isBlocked = blockedSlots.some((b) =>
         overlaps(startTime, endTime, b.startTime, b.endTime),
       );
+      const isClosed = !isWithinOpenHours(startTime, settings.opensAt, settings.closesAt);
 
       // "Already gone" is reported ahead of booked/blocked: to a player deciding
-      // tonight, that is the more useful reason.
+      // tonight, that is the more useful reason. `closed` comes last of the four
+      // because booked and blocked are facts about this particular hour, while
+      // being outside working hours is merely the default state of the clock.
       const status: SlotState = hasElapsed(date, startTime, now)
         ? 'passed'
         : isBooked
           ? 'booked'
           : isBlocked
             ? 'blocked'
-            : 'available';
+            : isClosed
+              ? 'closed'
+              : 'available';
 
       return { startTime, endTime, status };
     });
@@ -133,6 +140,20 @@ class BookingService {
     // often recorded after the match has already started.
     if (source === 'online' && hasElapsed(date, startTime, dayjs())) {
       throw new AppError('انتهى هذا الموعد بالفعل. اختر وقتًا لاحقًا.', 409);
+    }
+
+    // Working hours bind players only — staff take bookings outside them for a
+    // private match or an arrangement made by phone. Every unit is checked, not
+    // just the kick-off, so a range that starts before closing and runs past it
+    // is refused as well.
+    if (source === 'online') {
+      const { opensAt, closesAt } = await settingsService.get();
+      for (let offset = 0; offset < durationMinutes; offset += SLOT_MINUTES) {
+        const minuteOfDay = (toMinutes(startTime) + offset) % MINUTES_PER_DAY;
+        if (!isWithinOpenHours(toTimeString(minuteOfDay), opensAt, closesAt)) {
+          throw new AppError('هذا الموعد خارج مواعيد عمل الملعب', 409);
+        }
+      }
     }
 
     const keys = buildSlotKeys(date, startTime, durationMinutes);

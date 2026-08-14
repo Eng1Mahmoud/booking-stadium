@@ -1,6 +1,8 @@
 export type BookingStatus = 'confirmed' | 'cancelled'
 export type BookingSource = 'online' | 'manual'
-export type SlotStatus = 'available' | 'booked' | 'blocked' | 'passed'
+/** `closed` means outside the pitch's daily working hours — a standing state of
+ *  the clock, unlike `blocked`, which is a staff decision about one date. */
+export type SlotStatus = 'available' | 'booked' | 'blocked' | 'closed' | 'passed'
 
 export interface Booking {
   _id: string
@@ -26,6 +28,10 @@ export interface SiteConfig {
   slotMinutes: number
   minBookingMinutes: number
   maxBookingMinutes: number
+  /** Daily working window. `closesAt` may be "24:00", and may be earlier than
+   *  `opensAt` when the pitch stays open past midnight. */
+  opensAt: string
+  closesAt: string
 }
 
 export interface AvailabilitySlot {
@@ -45,13 +51,20 @@ export interface TimelineSlot extends AvailabilitySlot {
   isNextDay: boolean
 }
 
-/** One choice in a TimeField dropdown. */
-export interface TimeOption {
-  /** "HH:MM" on the half-hour grid. */
-  time: string
-  disabled?: boolean
-  /** Why it can't be picked, e.g. "محجوز". Shown under the time. */
-  note?: string
+/**
+ * One button in an HourGrid. The grid renders these and reports which was
+ * pressed; deciding what an hour means — a kick-off, an hour to close — belongs
+ * to whichever picker built the cell.
+ */
+export interface HourCell {
+  /** 0–23, the hour of the selected date this button stands for. */
+  hour: number
+  /** e.g. "8 م", or "8:30 م" when only the half-hour mark is bookable. */
+  label: string
+  disabled: boolean
+  /** Why it can't be picked, e.g. "محجوز". Shown under the label. */
+  note: string
+  status: SlotStatus
 }
 
 export interface BlockedSlot {

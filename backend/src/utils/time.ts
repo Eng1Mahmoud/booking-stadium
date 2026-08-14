@@ -83,6 +83,27 @@ export function keysForDate(date: string): string[] {
   return keys;
 }
 
+/**
+ * Whether a unit falls inside the pitch's working hours.
+ *
+ * The window repeats every day and may wrap past midnight — "12 م to 6 ص" is a
+ * normal way to run a football pitch, and is the case this exists for. A window
+ * whose two ends are equal is treated as always open rather than always closed:
+ * of the two readings, only one leaves the owner able to take a booking.
+ *
+ * Testing the unit's *start* minute is enough because both the grid and the
+ * window sit on SLOT_MINUTES boundaries, which the settings validator enforces.
+ */
+export function isWithinOpenHours(time: string, opensAt: string, closesAt: string): boolean {
+  const minute = toMinutes(time);
+  const open = toMinutes(opensAt);
+  const close = toMinutes(closesAt);
+
+  if (open === close) return true;
+  if (open < close) return minute >= open && minute < close;
+  return minute >= open || minute < close;
+}
+
 /** Whether a duration is a legal booking length. */
 export function isValidDuration(minutes: number): boolean {
   return (

@@ -27,20 +27,27 @@ const isCurrent = (to: string) => route.path === to
 </script>
 
 <template>
-  <nav class="flex gap-1 overflow-x-auto border-b border-turf-700/60">
-    <RouterLink
-      v-for="link in links"
-      :key="link.to"
-      :to="link.to"
-      :aria-current="isCurrent(link.to) ? 'page' : undefined"
-      class="-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors"
-      :class="
-        isCurrent(link.to)
-          ? 'border-grass-500 text-chalk-50'
-          : 'border-transparent text-chalk-400 hover:text-chalk-50'
-      "
-    >
-      {{ link.label }}
-    </RouterLink>
-  </nav>
+  <!-- The rule lives on the wrapper and the scroller is pulled a pixel over it,
+       so the active tab's underline still covers it without any child hanging
+       out of the scroll box. Overflowing it vertically — which `-mb-px` on the
+       tabs themselves used to do — costs a scrollbar: CSS forces overflow-y to
+       `auto` the moment overflow-x stops being `visible`. -->
+  <div class="border-b border-turf-700/60">
+    <nav class="-mb-px flex gap-1 overflow-x-auto overflow-y-hidden">
+      <RouterLink
+        v-for="link in links"
+        :key="link.to"
+        :to="link.to"
+        :aria-current="isCurrent(link.to) ? 'page' : undefined"
+        class="shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors"
+        :class="
+          isCurrent(link.to)
+            ? 'border-grass-500 text-chalk-50'
+            : 'border-transparent text-chalk-400 hover:text-chalk-50'
+        "
+      >
+        {{ link.label }}
+      </RouterLink>
+    </nav>
+  </div>
 </template>

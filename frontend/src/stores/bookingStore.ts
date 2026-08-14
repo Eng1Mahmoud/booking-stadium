@@ -171,7 +171,12 @@ export const useBookingStore = defineStore('booking', {
       }
     },
 
-    async updateSettings(patch: { pricePerHour?: number; currency?: string }): Promise<boolean> {
+    async updateSettings(patch: {
+      pricePerHour?: number
+      currency?: string
+      opensAt?: string
+      closesAt?: string
+    }): Promise<boolean> {
       this.error = null
       try {
         await api.patch('/settings', patch)

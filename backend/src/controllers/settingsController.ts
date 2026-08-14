@@ -13,6 +13,8 @@ class SettingsController {
     res.status(200).json({
       pricePerHour: settings.pricePerHour,
       currency: settings.currency,
+      opensAt: settings.opensAt,
+      closesAt: settings.closesAt,
     });
   }
 }

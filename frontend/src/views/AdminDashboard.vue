@@ -7,11 +7,13 @@ import BookingsList from '@/components/BookingsList.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import DayAgenda from '@/components/DayAgenda.vue'
 import DayTotals from '@/components/DayTotals.vue'
-import TimeField from '@/components/TimeField.vue'
+import BlockRangePicker from '@/components/BlockRangePicker.vue'
+import KickoffPicker from '@/components/KickoffPicker.vue'
 import { formatArabicDate } from '@/utils/date'
 import { buildAgenda, summariseDay } from '@/utils/agenda'
-import { MINUTES_PER_DAY, SLOT_MINUTES, toMinutes, toTimeString } from '@/utils/time'
-import type { Booking, TimeOption } from '@/types'
+import { endOptionsFor } from '@/utils/availability'
+import { MINUTES_PER_DAY, toMinutes, toTimeString } from '@/utils/time'
+import type { Booking } from '@/types'
 
 const bookingStore = useBookingStore()
 
@@ -21,8 +23,20 @@ const formattedDate = computed(() => formatArabicDate(selectedDate.value))
 
 const activePanel = ref<'none' | 'add' | 'block'>('none')
 
-const manualForm = ref({ startTime: '', endTime: '', playerName: '', playerPhone: '' })
-const blockForm = ref({ startTime: '', endTime: '', reason: '' })
+// The walk-in panel speaks the same kick-off-plus-length language as the player
+// page, so it stores an index into the timeline rather than a pair of times.
+const manualForm = ref({
+  startIndex: null as number | null,
+  durationMinutes: null as number | null,
+  playerName: '',
+  playerPhone: '',
+})
+// A block is a span of whole hours; the times the API wants are derived at submit.
+const blockForm = ref({
+  startHour: null as number | null,
+  endHour: null as number | null,
+  reason: '',
+})
 const isSubmitting = ref(false)
 const formError = ref<string | null>(null)
 const manualNameInput = ref<HTMLInputElement | null>(null)
@@ -32,6 +46,14 @@ const slotMinutes = computed(() => bookingStore.config?.slotMinutes ?? 30)
 const minMinutes = computed(() => bookingStore.config?.minBookingMinutes ?? 60)
 const maxMinutes = computed(() => bookingStore.config?.maxBookingMinutes ?? 360)
 const currency = computed(() => bookingStore.config?.currency ?? '')
+
+/** Staff take bookings outside working hours by arrangement; players can't. */
+const rules = computed(() => ({
+  slotMinutes: slotMinutes.value,
+  minMinutes: minMinutes.value,
+  maxMinutes: maxMinutes.value,
+  allowClosed: true,
+}))
 
 const agendaBands = computed(() =>
   buildAgenda(
@@ -43,42 +65,15 @@ const agendaBands = computed(() =>
 )
 const dayTotals = computed(() => summariseDay(agendaBands.value, selectedDate.value))
 
-/** Every point on the grid, 00:00 to 23:30 — the raw material for both forms. */
-const gridTimes = computed(() =>
-  Array.from({ length: MINUTES_PER_DAY / SLOT_MINUTES }, (_, i) => toTimeString(i * SLOT_MINUTES)),
-)
-
-const STATUS_NOTE: Record<string, string> = {
-  booked: 'محجوز',
-  blocked: 'مغلق',
-  passed: 'مرّ',
+function selectManualSlot(startIndex: number, durationMinutes: number | null) {
+  manualForm.value.startIndex = startIndex
+  manualForm.value.durationMinutes = durationMinutes
 }
 
-/**
- * Kick-off choices for a walk-in. Elapsed hours stay open — staff routinely
- * record a match after it has started — but hours the server will refuse are
- * closed here rather than at submit.
- */
-const manualStartOptions = computed<TimeOption[]>(() =>
-  gridTimes.value.map((time) => {
-    const status = bookingStore.slots.find((slot) => slot.startTime === time)?.status
-    return {
-      time,
-      disabled: status === 'booked' || status === 'blocked',
-      note: status ? STATUS_NOTE[status] : undefined,
-    }
-  }),
-)
-
-/**
- * Boundaries, not slots: any grid point is a legal end. "24:00" is offered as
- * well — it means midnight closing the day, which "00:00" cannot say without
- * being read as midnight opening it.
- */
-const boundaryOptions = computed<TimeOption[]>(() => [
-  ...gridTimes.value.map((time) => ({ time })),
-  { time: '24:00', note: 'نهاية اليوم' },
-])
+function selectBlockRange(startHour: number | null, endHour: number | null) {
+  blockForm.value.startHour = startHour
+  blockForm.value.endHour = endHour
+}
 
 function load() {
   // Availability supplies the canonical hour grid; the other two fill in who
@@ -95,40 +90,39 @@ function togglePanel(panel: 'add' | 'block') {
 
 async function submitManualBooking() {
   formError.value = null
-  const { startTime, endTime, playerName, playerPhone } = manualForm.value
+  const { startIndex, durationMinutes, playerName, playerPhone } = manualForm.value
+
+  // The picker only ever offers legal lengths, so there is no duration arithmetic
+  // to re-check here — just that a slot was actually chosen.
+  const slot = startIndex === null ? null : bookingStore.timeline[startIndex]
   if (
-    !startTime ||
-    !endTime ||
+    !slot ||
+    !durationMinutes ||
     playerName.trim().length < 2 ||
     !/^\+?[0-9]{8,15}$/.test(playerPhone.trim())
   ) {
-    formError.value = 'أدخل فترة زمنية صحيحة، والاسم، ورقم الهاتف.'
-    return
-  }
-
-  // An end earlier than the start means the next morning — staff record
-  // late-night matches this way, so wrap rather than reject.
-  const duration = (toMinutes(endTime) - toMinutes(startTime) + MINUTES_PER_DAY) % MINUTES_PER_DAY
-  if (
-    duration < minMinutes.value ||
-    duration % slotMinutes.value !== 0 ||
-    duration > maxMinutes.value
-  ) {
-    formError.value = `مدة الحجز يجب أن تكون من ${minMinutes.value / 60} إلى ${maxMinutes.value / 60} ساعات، بمضاعفات نصف ساعة.`
+    formError.value = 'اختر موعدًا ومدة، وأدخل الاسم ورقم الهاتف.'
     return
   }
 
   isSubmitting.value = true
   const ok = await bookingStore.createManualBooking({
-    date: selectedDate.value,
-    startTime,
-    durationMinutes: duration,
+    // The start unit owns the booking's date, which may be tomorrow for a match
+    // recorded after midnight.
+    date: slot.date,
+    startTime: slot.startTime,
+    durationMinutes,
     playerName: playerName.trim(),
     playerPhone: playerPhone.trim(),
   })
   isSubmitting.value = false
   if (ok) {
-    manualForm.value = { startTime: '', endTime: '', playerName: '', playerPhone: '' }
+    manualForm.value = {
+      startIndex: null,
+      durationMinutes: null,
+      playerName: '',
+      playerPhone: '',
+    }
     activePanel.value = 'none'
     load()
   } else {
@@ -138,21 +132,25 @@ async function submitManualBooking() {
 
 async function submitBlock() {
   formError.value = null
-  const { startTime, endTime, reason } = blockForm.value
-  if (!startTime || !endTime) {
-    formError.value = 'حدّد وقت البداية والنهاية للحظر.'
+  const { startHour, endHour, reason } = blockForm.value
+  if (startHour === null || endHour === null) {
+    formError.value = 'حدّد أول وآخر ساعة تريد إغلاقها.'
     return
   }
+
   isSubmitting.value = true
   const ok = await bookingStore.blockSlot({
     date: selectedDate.value,
-    startTime,
-    endTime,
+    startTime: toTimeString(startHour * 60),
+    // The last closed hour runs to the top of the next one, so closing 11 م
+    // yields "24:00" — midnight ending the day, which the API accepts and
+    // "00:00" could not express.
+    endTime: toTimeString((endHour + 1) * 60),
     reason: reason.trim() || undefined,
   })
   isSubmitting.value = false
   if (ok) {
-    blockForm.value = { startTime: '', endTime: '', reason: '' }
+    blockForm.value = { startHour: null, endHour: null, reason: '' }
     activePanel.value = 'none'
     load()
   } else {
@@ -173,18 +171,26 @@ async function handleUnblock(id: string) {
 /**
  * Tapping a free band opens the walk-in form pre-filled with it.
  *
- * The range is clamped to the maximum booking length: an empty day is one
- * 24-hour band, and pre-filling 00:00–00:00 would compute a zero duration and
- * fail validation for reasons the user can't see.
+ * The length is taken from the picker's own option list rather than computed
+ * here — the longest one the band can hold. That keeps an empty day, which
+ * arrives as a single 24-hour band, from pre-filling a length the server would
+ * refuse for reasons the user can't see.
  */
 function handlePickFree({ startTime, endTime }: { startTime: string; endTime: string }) {
-  const rawEnd = endTime === '24:00' ? MINUTES_PER_DAY : toMinutes(endTime)
-  const capped = Math.min(rawEnd, toMinutes(startTime) + maxMinutes.value)
+  const startIndex = bookingStore.timeline.findIndex(
+    (slot) => !slot.isNextDay && slot.startTime === startTime,
+  )
+  if (startIndex === -1) return
+
+  const bandMinutes =
+    (endTime === '24:00' ? MINUTES_PER_DAY : toMinutes(endTime)) - toMinutes(startTime)
+  const options = endOptionsFor(bookingStore.timeline, startIndex, rules.value)
+  const fit = [...options].reverse().find((option) => option.durationMinutes <= bandMinutes)
 
   manualForm.value = {
     ...manualForm.value,
-    startTime,
-    endTime: capped === MINUTES_PER_DAY ? '24:00' : toTimeString(capped),
+    startIndex,
+    durationMinutes: (fit ?? options[0])?.durationMinutes ?? null,
   }
   activePanel.value = 'add'
   formError.value = null
@@ -194,9 +200,18 @@ function handlePickFree({ startTime, endTime }: { startTime: string; endTime: st
 /**
  * Tapping إغلاق on a free band opens the block form rather than blocking
  * immediately — with merged bands a single click could otherwise close hours.
+ *
+ * A band ending mid-hour rounds *up* to close that hour whole: the grid works in
+ * whole hours, and leaving the last half hour open is the worse of the two ways
+ * to be wrong about a maintenance window.
  */
 function handleBlockRange({ startTime, endTime }: { startTime: string; endTime: string }) {
-  blockForm.value = { startTime, endTime, reason: '' }
+  const endMinutes = endTime === '24:00' ? MINUTES_PER_DAY : toMinutes(endTime)
+  blockForm.value = {
+    startHour: Math.floor(toMinutes(startTime) / 60),
+    endHour: Math.min(Math.ceil(endMinutes / 60) - 1, 23),
+    reason: '',
+  }
   activePanel.value = 'block'
   formError.value = null
 }
@@ -285,18 +300,19 @@ onMounted(async () => {
             novalidate
             @submit.prevent="submitManualBooking"
           >
-            <div class="grid gap-4 sm:grid-cols-2">
-              <TimeField
-                v-model="manualForm.startTime"
-                :options="manualStartOptions"
-                label="البداية"
-              />
-              <TimeField
-                v-model="manualForm.endTime"
-                :options="boundaryOptions"
-                label="النهاية"
-              />
-            </div>
+            <KickoffPicker
+              :timeline="bookingStore.timeline"
+              :start-index="manualForm.startIndex"
+              :duration-minutes="manualForm.durationMinutes"
+              :slot-minutes="slotMinutes"
+              :min-minutes="minMinutes"
+              :max-minutes="maxMinutes"
+              :price-per-hour="bookingStore.config?.pricePerHour ?? 0"
+              :currency="currency"
+              :loading="bookingStore.isLoadingSlots"
+              allow-closed
+              @select="selectManualSlot"
+            />
             <div class="space-y-1.5">
               <label class="block text-sm font-medium text-chalk-300" for="manualName"
                 >اسم اللاعب</label
@@ -342,20 +358,12 @@ onMounted(async () => {
             novalidate
             @submit.prevent="submitBlock"
           >
-            <div class="grid gap-4 sm:grid-cols-2">
-              <TimeField
-                v-model="blockForm.startTime"
-                :options="boundaryOptions"
-                label="البداية"
-                accent="yellow"
-              />
-              <TimeField
-                v-model="blockForm.endTime"
-                :options="boundaryOptions"
-                label="النهاية"
-                accent="yellow"
-              />
-            </div>
+            <BlockRangePicker
+              :slots="bookingStore.slots"
+              :start-hour="blockForm.startHour"
+              :end-hour="blockForm.endHour"
+              @update:range="selectBlockRange"
+            />
             <div class="space-y-1.5">
               <label class="block text-sm font-medium text-chalk-300" for="blockReason"
                 >السبب (اختياري)</label

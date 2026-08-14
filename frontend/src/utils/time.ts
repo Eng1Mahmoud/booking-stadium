@@ -2,6 +2,26 @@
 export const SLOT_MINUTES = 30
 export const MINUTES_PER_DAY = 24 * 60
 
+/**
+ * The day split into four six-hour stretches, named the way people in Egypt
+ * actually describe them rather than by clock quadrant: فجرًا covers the
+ * after-midnight games this pitch exists for.
+ *
+ * Used as the section headings of the shared HourGrid, so the player page and
+ * both staff panels can't drift into disagreeing about where the evening starts.
+ *
+ * The last one runs a minute past the day so that "24:00" — midnight as a
+ * closing boundary rather than an opening one — has somewhere to live.
+ */
+export const DAY_PERIODS = [
+  { key: 'dawn', label: 'فجرًا', from: 0, to: 360 },
+  { key: 'morning', label: 'صباحًا', from: 360, to: 720 },
+  { key: 'noon', label: 'ظهرًا', from: 720, to: 1080 },
+  { key: 'evening', label: 'مساءً', from: 1080, to: 1441 },
+] as const
+
+export type DayPeriodKey = (typeof DAY_PERIODS)[number]['key']
+
 /** "HH:MM" -> minutes since midnight. */
 export function toMinutes(time: string): number {
   const [hours, minutes] = time.split(':')
@@ -42,6 +62,17 @@ export function formatTimeRange(startTime: string, endTime: string): string {
 /** Absolute grid-unit id, matching the backend's key format. */
 export function slotKey(date: string, time: string): string {
   return `${date}T${time}`
+}
+
+/**
+ * Just the number of hours, e.g. 90 -> "1.5". For the duration chips, where a
+ * row of numerals is scanned far faster than a row of prose and the shared
+ * "ساعة" label sits outside the chips anyway. Use `formatDuration` wherever the
+ * length is read as part of a sentence.
+ */
+export function formatDurationShort(minutes: number): string {
+  const hours = minutes / 60
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
 }
 
 /** e.g. "ساعتان ونصف". */
