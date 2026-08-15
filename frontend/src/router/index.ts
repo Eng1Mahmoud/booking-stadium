@@ -2,8 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { useAuthStore } from '@/features/auth/store'
 
-/** Typed so the guard and the layout read real fields rather than `unknown`, and
- *  a mistyped key fails the build instead of rendering an empty heading. */
 declare module 'vue-router' {
   interface RouteMeta {
     title?: string
@@ -26,8 +24,7 @@ const router = createRouter({
       name: 'booking',
       component: () => import('@/pages/public/BookingPage.vue'),
     },
-    // Outside the admin layout on purpose: it is the one staff screen that must
-    // render without the shell, since nobody is signed in yet.
+
     {
       path: '/admin/login',
       name: 'admin-login',
@@ -35,13 +32,7 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
     {
-      // Unlinked from the public UI, reachable by typing the URL. The guard
-      // below, not the missing link, is the access control.
-      //
-      // Deliberately unnamed: naming a route that has children is ambiguous
-      // about which one it resolves to. `requiresAuth` sits here because Vue
-      // Router merges every matched record's meta into `to.meta`, so all four
-      // children inherit it and the guard needs no knowledge of the nesting.
+      
       path: '/admin',
       component: AdminLayout,
       meta: { requiresAuth: true },

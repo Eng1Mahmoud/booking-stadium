@@ -2,39 +2,19 @@ import { ref } from 'vue'
 import type { ZodType, ZodTypeDef } from 'zod'
 import { getErrorMessage } from '@/shared/api/client'
 
-/**
- * The dance every form in this app was writing out by hand: validate, clear the
- * error, flip a submitting flag, try/catch the call, unflip in `finally`.
- *
- * Each form gets its own instance, which is what keeps one form's failure from
- * appearing under another — the two on a settings page, or the add form and a
- * row editor in the staff list.
- *
- * It wraps the call; it does not replace the mutation. Invalidation and caching
- * still belong to TanStack Query.
- */
 export function useSubmit<Out, In = Out>(schema?: ZodType<Out, ZodTypeDef, In>) {
   const isSubmitting = ref(false)
   const error = ref<string | null>(null)
   /** Per-field messages from the schema, keyed by field name. */
   const fieldErrors = ref<Record<string, string>>({})
 
-  /** Refuse locally for something a schema has no opinion about — a slot not
-   *  picked yet, say. Returns false so a branch reads
-   *  `if (!slot) return fail('…')`. */
+
   function fail(message: string): false {
     error.value = message
     return false
   }
 
-  /**
-   * Validates, then submits the **parsed** value — so trimming and lowercasing
-   * declared in the schema reach the server, exactly as they would if the form
-   * had done it by hand.
-   *
-   * A parse failure never calls `action` and never raises `isSubmitting`: the
-   * button shouldn't flicker for a request that was never made.
-   */
+
   async function submit(values: In, action: (input: Out) => Promise<unknown>): Promise<boolean> {
     error.value = null
     fieldErrors.value = {}

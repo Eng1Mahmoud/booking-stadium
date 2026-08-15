@@ -1,14 +1,5 @@
 import { z } from 'zod'
 
-/**
- * Mirrors backend/src/validators/common.ts and adminValidators.ts, messages
- * included — so a field the server would refuse is refused here with the exact
- * same wording, rather than coming back as a surprise after a round trip.
- *
- * That mirroring is by hand: the two packages deploy separately and share no
- * code. Changing a rule on the server means changing it here. Keep the shapes
- * identical so that stays a copy rather than a translation.
- */
 
 /** Player phone. backend: common.ts → phoneSchema */
 export const phoneSchema = z

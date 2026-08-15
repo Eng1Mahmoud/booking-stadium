@@ -1,9 +1,5 @@
 import dayjs from 'dayjs'
 
-// Hand-rolled instead of dayjs's built-in 'ar' locale: that locale swaps in
-// Eastern Arabic-Indic numerals (١٢٣...), which would break the tabular-nums
-// mono styling used for dates/times elsewhere in the app. Egyptian/Gulf UIs
-// commonly pair Arabic month names with Western digits, so we do the same.
 const WEEKDAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
 const MONTHS = [
   'يناير',
