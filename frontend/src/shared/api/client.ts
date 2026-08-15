@@ -1,5 +1,5 @@
 import axios, { type AxiosError } from 'axios'
-import { manageCookie } from './manageCookie'
+import { manageCookie } from './csrfCookie'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL
 

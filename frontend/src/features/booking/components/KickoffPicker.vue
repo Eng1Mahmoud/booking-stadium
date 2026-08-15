@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import HourGrid from '@/components/HourGrid.vue'
-import { endOptionsFor, hasAnyEnd } from '@/utils/availability'
-import { formatDurationShort, formatTime12h, toMinutes } from '@/utils/time'
-import { formatMoney, priceFor } from '@/utils/money'
-import type { EndOption } from '@/utils/availability'
-import type { HourCell, SlotStatus, TimelineSlot } from '@/types'
+import HourGrid from '@/features/booking/components/HourGrid.vue'
+import { endOptionsFor, hasAnyEnd } from '@/features/booking/utils/availability'
+import { formatDurationShort, formatTime12h, toMinutes } from '@/shared/utils/time'
+import { formatMoney, priceFor } from '@/shared/utils/money'
+import type { EndOption } from '@/features/booking/utils/availability'
+import type { HourCell, SlotStatus, TimelineSlot } from '@/features/booking/types'
 
 /**
  * A slot described the way a match is: a kick-off and a length, with the end

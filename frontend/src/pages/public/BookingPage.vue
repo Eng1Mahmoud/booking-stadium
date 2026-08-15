@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import DatePicker from '@/components/DatePicker.vue'
-import KickoffPicker from '@/components/KickoffPicker.vue'
-import BookingForm from '@/components/BookingForm.vue'
-import { useSiteConfig } from '@/queries/useSiteConfig'
-import { useAvailability } from '@/queries/useAvailability'
-import { useCreateBooking } from '@/queries/mutations'
-import { getErrorMessage } from '@/services/api'
-import { formatArabicDate } from '@/utils/date'
-import { isSpanFree } from '@/utils/availability'
-import { formatMoney, priceFor } from '@/utils/money'
-import { MINUTES_PER_DAY, formatTime12h, toMinutes, toTimeString } from '@/utils/time'
+import DatePicker from '@/shared/ui/DatePicker.vue'
+import KickoffPicker from '@/features/booking/components/KickoffPicker.vue'
+import BookingForm from '@/features/booking/components/BookingForm.vue'
+import { useSiteConfig } from '@/features/settings/queries/useSiteConfig'
+import { useAvailability } from '@/features/booking/queries/useAvailability'
+import { useCreateBooking } from '@/features/booking/queries/mutations'
+import { getErrorMessage } from '@/shared/api/client'
+import { formatArabicDate } from '@/shared/utils/date'
+import { isSpanFree } from '@/features/booking/utils/availability'
+import { formatMoney, priceFor } from '@/shared/utils/money'
+import { MINUTES_PER_DAY, formatTime12h, toMinutes, toTimeString } from '@/shared/utils/time'
 
 const today = dayjs().format('YYYY-MM-DD')
 const selectedDate = ref(today)

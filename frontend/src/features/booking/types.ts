@@ -1,5 +1,6 @@
 export type BookingStatus = 'confirmed' | 'cancelled'
 export type BookingSource = 'online' | 'manual'
+
 /** `closed` means outside the pitch's daily working hours — a standing state of
  *  the clock, unlike `blocked`, which is a staff decision about one date. */
 export type SlotStatus = 'available' | 'booked' | 'blocked' | 'closed' | 'passed'
@@ -22,25 +23,13 @@ export interface Booking {
   updatedAt: string
 }
 
-export interface SiteConfig {
-  pricePerHour: number
-  currency: string
-  slotMinutes: number
-  minBookingMinutes: number
-  maxBookingMinutes: number
-  /** Daily working window. `closesAt` may be "24:00", and may be earlier than
-   *  `opensAt` when the pitch stays open past midnight. */
-  opensAt: string
-  closesAt: string
-}
-
 export interface AvailabilitySlot {
   startTime: string
   endTime: string
   status: SlotStatus
 }
 
-/** Lives here rather than in the store so pure utils can use it without Pinia. */
+/** Lives here rather than in a query so pure utils can use it without TanStack. */
 export interface TimelineSlot extends AvailabilitySlot {
   date: string
   /** True for units belonging to the day after the selected date. */
@@ -73,30 +62,4 @@ export interface NewBookingInput {
   durationMinutes: number
   playerName: string
   playerPhone: string
-}
-
-export interface ApiErrorPayload {
-  error: string
-}
-
-export type AdminRole = 'admin' | 'superadmin'
-
-export interface Admin {
-  _id: string
-  username: string
-  fullName?: string
-  phone?: string
-  role: AdminRole
-  isActive: boolean
-  /** Absent until the account signs in for the first time. */
-  lastLoginAt?: string
-  manualBookings: number
-  blockedSlots: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface AdminProfile {
-  fullName?: string
-  phone?: string
 }

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -nE '^\\\\s*\\(//|/\\\\*|\\\\*|<!--\\)' KickoffPicker.vue)",
+      "Bash(python -)",
+      "Bash(python trim2.py)",
+      "Bash(python trim3.py)",
+      "Bash(python trim4.py)",
+      "Bash(awk '/<template>/,0' views/AdminDashboard.vue)",
+      "Bash(python imports.py)",
+      "Bash(read f *)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}

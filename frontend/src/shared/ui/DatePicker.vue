@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { WEEKDAY_HEADERS, formatArabicMonth, weekdayColumn } from '@/utils/date'
+import { WEEKDAY_HEADERS, formatArabicMonth, weekdayColumn } from '@/shared/utils/date'
 
 const props = defineProps<{
   modelValue: string

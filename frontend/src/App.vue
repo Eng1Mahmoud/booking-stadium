@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore } from '@/features/auth/store'
 
 const route = useRoute()
 const router = useRouter()

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { DAY_PERIODS } from '@/utils/time'
-import type { HourCell, SlotStatus } from '@/types'
+import { DAY_PERIODS } from '@/shared/utils/time'
+import type { HourCell, SlotStatus } from '@/features/booking/types'
 
 /**
  * Presentation only: handed finished cells, reports which was pressed. What a

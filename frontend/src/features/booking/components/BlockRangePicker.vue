@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import HourGrid from '@/components/HourGrid.vue'
-import { formatTime12h, toTimeString } from '@/utils/time'
-import type { AvailabilitySlot, HourCell } from '@/types'
+import HourGrid from '@/features/booking/components/HourGrid.vue'
+import { formatTime12h, toTimeString } from '@/shared/utils/time'
+import type { AvailabilitySlot, HourCell } from '@/features/booking/types'
 
 /**
  * Closing a stretch of the day, on the booking forms' hour grid. A block has no

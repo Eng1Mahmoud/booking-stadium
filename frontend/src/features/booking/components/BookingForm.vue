@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { bookingFormSchema } from '@/features/booking/schemas/booking'
 
 const props = defineProps<{
   /** Already-formatted range, e.g. "11:00 م – 1:00 ص". */
@@ -28,23 +29,24 @@ watch(
   },
 )
 
-const nameError = computed(() => {
-  const value = playerName.value.trim()
+/** Parsed one field at a time so a message appears as soon as that field is
+ *  left, rather than only on submit. Same schema either way. */
+function fieldError(field: 'playerName' | 'playerPhone', value: string) {
   if (!touched.value) return null
-  if (value.length < 2) return 'اكتب اسمك — حرفان على الأقل.'
-  return null
-})
+  const result = bookingFormSchema.shape[field].safeParse(value)
+  return result.success ? null : (result.error.issues[0]?.message ?? null)
+}
 
-const phoneError = computed(() => {
-  const value = playerPhone.value.trim()
-  if (!touched.value) return null
-  if (!/^\+?[0-9]{8,15}$/.test(value))
-    return 'أدخل رقم هاتف صحيح حتى نتمكن من التواصل معك عند الحاجة.'
-  return null
-})
+const nameError = computed(() => fieldError('playerName', playerName.value))
+
+const phoneError = computed(() => fieldError('playerPhone', playerPhone.value))
 
 const isValid = computed(
-  () => playerName.value.trim().length >= 2 && /^\+?[0-9]{8,15}$/.test(playerPhone.value.trim()),
+  () =>
+    bookingFormSchema.safeParse({
+      playerName: playerName.value,
+      playerPhone: playerPhone.value,
+    }).success,
 )
 
 function handleSubmit() {

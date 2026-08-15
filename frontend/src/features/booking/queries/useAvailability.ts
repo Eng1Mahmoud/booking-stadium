@@ -1,10 +1,10 @@
 import { computed, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import dayjs from 'dayjs'
-import { api } from '@/services/api'
-import { keys } from './keys'
-import { useSiteConfig } from './useSiteConfig'
-import type { AvailabilitySlot, TimelineSlot } from '@/types'
+import { api } from '@/shared/api/client'
+import { keys } from '@/shared/api/keys'
+import { useSiteConfig } from '@/features/settings/queries/useSiteConfig'
+import type { AvailabilitySlot, TimelineSlot } from '@/features/booking/types'
 
 function fetchDay(date: string) {
   return api

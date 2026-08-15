@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { formatTimeRange } from '@/utils/time'
-import { formatMoney } from '@/utils/money'
-import type { Booking } from '@/types'
+import { formatTimeRange } from '@/shared/utils/time'
+import { formatMoney } from '@/shared/utils/money'
+import type { Booking } from '@/features/booking/types'
 
 defineProps<{
   bookings: Booking[]

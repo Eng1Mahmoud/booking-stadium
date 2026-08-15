@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { formatDuration, formatTimeRange, toMinutes } from '@/utils/time'
-import { formatMoney } from '@/utils/money'
-import type { AgendaBand } from '@/utils/agenda'
-import type { Booking } from '@/types'
+import { formatDuration, formatTimeRange, toMinutes } from '@/shared/utils/time'
+import { formatMoney } from '@/shared/utils/money'
+import type { AgendaBand } from '@/features/booking/utils/agenda'
+import type { Booking } from '@/features/booking/types'
 
 const props = defineProps<{
   /** The page derives the day's totals from these too, so the schedule and the

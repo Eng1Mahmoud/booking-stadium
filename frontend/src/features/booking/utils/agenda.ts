@@ -1,5 +1,5 @@
-import { MINUTES_PER_DAY, slotKey, toMinutes } from './time'
-import type { AvailabilitySlot, BlockedSlot, Booking } from '@/types'
+import { MINUTES_PER_DAY, slotKey, toMinutes } from '@/shared/utils/time'
+import type { AvailabilitySlot, BlockedSlot, Booking } from '@/features/booking/types'
 
 /** Folds a day's units into the fewest bands that describe it, so three events
  *  render three cards instead of forty-eight rows. */

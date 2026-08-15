@@ -1,5 +1,5 @@
-import { MINUTES_PER_DAY, toMinutes, toTimeString } from './time'
-import type { TimelineSlot } from '@/types'
+import { MINUTES_PER_DAY, toMinutes, toTimeString } from '@/shared/utils/time'
+import type { TimelineSlot } from '@/features/booking/types'
 
 /**
  * Which time ranges a player may actually book, derived from the availability

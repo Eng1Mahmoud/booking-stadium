@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { api, getErrorMessage } from '@/services/api'
-import { manageCookie } from '@/services/manageCookie'
-import type { AdminRole } from '@/types'
+import { api, getErrorMessage } from '@/shared/api/client'
+import { manageCookie } from '@/shared/api/csrfCookie'
+import type { AdminRole } from '@/shared/types'
 
 interface SessionPayload {
   csrfToken: string

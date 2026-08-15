@@ -1,5 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
+import AdminLayout from '@/layouts/AdminLayout.vue'
+import { useAuthStore } from '@/features/auth/store'
+
+/** Typed so the guard and the layout read real fields rather than `unknown`, and
+ *  a mistyped key fails the build instead of rendering an empty heading. */
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string
+    requiresAuth?: boolean
+    requiresSuperAdmin?: boolean
+    guestOnly?: boolean
+  }
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,45 +19,59 @@ const router = createRouter({
     {
       path: '/',
       name: 'landing',
-      component: () => import('@/views/LandingPage.vue'),
+      component: () => import('@/pages/public/HomePage.vue'),
     },
     {
       path: '/book',
       name: 'booking',
-      component: () => import('@/views/BookingPage.vue'),
+      component: () => import('@/pages/public/BookingPage.vue'),
     },
-    // Unlinked from the public UI, reachable by typing the URL. The guard below,
-    // not the missing link, is the access control.
+    // Outside the admin layout on purpose: it is the one staff screen that must
+    // render without the shell, since nobody is signed in yet.
     {
       path: '/admin/login',
       name: 'admin-login',
-      component: () => import('@/views/AdminLogin.vue'),
+      component: () => import('@/pages/dashboard/LoginPage.vue'),
       meta: { guestOnly: true },
     },
     {
+      // Unlinked from the public UI, reachable by typing the URL. The guard
+      // below, not the missing link, is the access control.
+      //
+      // Deliberately unnamed: naming a route that has children is ambiguous
+      // about which one it resolves to. `requiresAuth` sits here because Vue
+      // Router merges every matched record's meta into `to.meta`, so all four
+      // children inherit it and the guard needs no knowledge of the nesting.
       path: '/admin',
-      name: 'admin-dashboard',
-      component: () => import('@/views/AdminDashboard.vue'),
+      component: AdminLayout,
       meta: { requiresAuth: true },
-    },
-    {
-      // Role-agnostic: /api/admins/me sits above the requireSuperAdmin gate.
-      path: '/admin/account',
-      name: 'admin-account',
-      component: () => import('@/views/AdminAccount.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/admin/staff',
-      name: 'admin-staff',
-      component: () => import('@/views/AdminStaff.vue'),
-      meta: { requiresAuth: true, requiresSuperAdmin: true },
-    },
-    {
-      path: '/admin/settings',
-      name: 'admin-settings',
-      component: () => import('@/views/AdminSettings.vue'),
-      meta: { requiresAuth: true, requiresSuperAdmin: true },
+      children: [
+        {
+          path: '',
+          name: 'admin-dashboard',
+          component: () => import('@/pages/dashboard/SchedulePage.vue'),
+          meta: { title: 'مباريات اليوم' },
+        },
+        {
+          // Role-agnostic: /api/admins/me sits above the requireSuperAdmin gate.
+          path: 'account',
+          name: 'admin-account',
+          component: () => import('@/pages/dashboard/AccountPage.vue'),
+          meta: { title: 'حسابي' },
+        },
+        {
+          path: 'staff',
+          name: 'admin-staff',
+          component: () => import('@/pages/dashboard/StaffPage.vue'),
+          meta: { title: 'الموظفون', requiresSuperAdmin: true },
+        },
+        {
+          path: 'settings',
+          name: 'admin-settings',
+          component: () => import('@/pages/dashboard/SettingsPage.vue'),
+          meta: { title: 'الإعدادات', requiresSuperAdmin: true },
+        },
+      ],
     },
     {
       path: '/:pathMatch(.*)*',

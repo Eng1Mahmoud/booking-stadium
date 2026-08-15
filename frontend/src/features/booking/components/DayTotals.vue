@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatMoney } from '@/utils/money'
-import type { DayTotals } from '@/utils/agenda'
+import { formatMoney } from '@/shared/utils/money'
+import type { DayTotals } from '@/features/booking/utils/agenda'
 
 const props = defineProps<{
   totals: DayTotals

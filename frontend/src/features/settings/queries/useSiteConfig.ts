@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/vue-query'
-import { api } from '@/services/api'
-import { keys } from './keys'
-import type { SiteConfig } from '@/types'
+import { api } from '@/shared/api/client'
+import { keys } from '@/shared/api/keys'
+import type { SiteConfig } from '@/shared/types'
 
 /** Price, currency, working hours and the booking rules. Rarely changes, and
  *  almost every screen wants it, so it is cached well past the default. */

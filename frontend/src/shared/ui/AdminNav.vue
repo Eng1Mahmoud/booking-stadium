@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
 
-/** Superadmin-only destinations are absent for an admin, so nobody is offered a
- *  tab that answers with a 403. */
-const authStore = useAuthStore()
+/**
+ * Superadmin-only destinations are absent for an admin, so nobody is offered a
+ * tab that answers with a 403.
+ *
+ * Told rather than asking the auth store: anything under `shared/` that reached
+ * into a feature would invert the dependency this layout exists to keep one-way.
+ */
+const props = defineProps<{ isSuperAdmin: boolean }>()
+
 const route = useRoute()
 
 const links = computed(() => [
   { to: '/admin', label: 'الحجوزات' },
-  ...(authStore.isSuperAdmin
+  ...(props.isSuperAdmin
     ? [
         { to: '/admin/staff', label: 'الموظفون' },
         { to: '/admin/settings', label: 'الإعدادات' },
