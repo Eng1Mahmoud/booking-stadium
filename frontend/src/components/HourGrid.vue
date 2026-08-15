@@ -4,20 +4,17 @@ import { DAY_PERIODS } from '@/utils/time'
 import type { HourCell, SlotStatus } from '@/types'
 
 /**
- * The day as 24 buttons, grouped under period headings.
- *
- * Presentation only — it is handed finished cells and reports which one was
- * pressed. What a cell *means* differs by caller (a kick-off on the booking
- * forms, an hour to close on the block form), and keeping that decision out of
- * here is what lets the player page and both staff panels share one look.
+ * Presentation only: handed finished cells, reports which was pressed. What a
+ * cell *means* differs by caller — a kick-off on the booking forms, an hour to
+ * close on the block form — and keeping that out of here is what lets the player
+ * page and both staff panels share one look.
  */
 
 const props = withDefaults(
   defineProps<{
     cells: HourCell[]
-    /** Hours to render as chosen. A range is just every hour it covers. */
+    /** A range is just every hour it covers. */
     selectedHours?: number[]
-    /** Matches the surrounding form — closing hours are the app's yellow. */
     accent?: 'grass' | 'yellow'
   }>(),
   { selectedHours: () => [], accent: 'grass' },
@@ -40,12 +37,10 @@ const hoverClass = computed(() =>
 )
 
 /**
- * The same colours the agenda uses for its bands — red for taken, yellow for
- * closed — so an hour reads the same wherever it appears. Dimmed variants,
- * because these are the background of the grid rather than its subject.
- *
- * `passed`, `closed`, and a free hour too short to book stay plain grey: none of
- * them is a state anyone did anything about.
+ * The agenda's colours — red for taken, yellow for closed — so an hour reads the
+ * same wherever it appears. Dimmed, because these are the grid's background
+ * rather than its subject. `passed` and `closed` stay plain grey: neither is a
+ * state anyone did anything about.
  */
 const TONE: Partial<Record<SlotStatus, string>> = {
   booked: 'border-card-red-dim/60 bg-card-red-dim/15 text-card-red/80',
@@ -67,14 +62,12 @@ function cellClass(cell: HourCell): string {
 }
 
 /**
- * A period is dropped when every hour in it has merely *passed* or falls outside
- * working hours — by evening the first would be most of the page, and with a
- * window like 12 م → 6 ص the second is a whole dead morning. Neither is
- * actionable. Booked and blocked hours stay, greyed: "the evening is full" is
- * something worth seeing.
+ * A period whose hours have all passed or fall outside working hours is dropped;
+ * neither is actionable, and together they can be most of the page. Booked and
+ * blocked hours stay, greyed: "the evening is full" is worth seeing.
  *
- * The rule requires `disabled`, so staff — who may book and close outside working
- * hours — keep the whole day in view.
+ * Requiring `disabled` is what keeps the whole day in view for staff, who may
+ * book and close outside working hours.
  */
 const IGNORABLE: SlotStatus[] = ['passed', 'closed']
 

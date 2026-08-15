@@ -1,29 +1,24 @@
 import dayjs from 'dayjs';
 
 /**
- * Time helpers for the booking grid.
- *
- * A booking is identified by a start date + start time + duration, never by an
- * end time on its own: "23:00 to 01:00" is ambiguous about which day 01:00 is,
- * and this pitch is open around the clock, so that case is normal rather than
- * exotic. Duration removes the ambiguity, and the end is always derived.
+ * A booking is identified by start date + start time + duration, never by an end
+ * time on its own: "23:00 to 01:00" is ambiguous about which day 01:00 is, and
+ * for a pitch open around the clock that case is normal. The end is derived.
  */
 
-/** Granularity of the grid. 30 minutes is what makes 1.5-hour bookings expressible. */
+/** 30 minutes is what makes 1.5-hour bookings expressible. */
 export const SLOT_MINUTES = 30;
 export const MINUTES_PER_DAY = 24 * 60;
 
-/** Shortest and longest a single booking may run. */
 export const MIN_BOOKING_MINUTES = 60;
 export const MAX_BOOKING_MINUTES = 360;
 
-/** "HH:MM" -> minutes since midnight. */
 export function toMinutes(time: string): number {
   const [hours, minutes] = time.split(':');
   return Number(hours) * 60 + Number(minutes);
 }
 
-/** Minutes since midnight -> "HH:MM". Expects an already-normalised 0..1439. */
+/** Expects an already-normalised 0..1439. */
 export function toTimeString(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
@@ -35,10 +30,9 @@ export function addDays(date: string, days: number): string {
 }
 
 /**
- * Absolute identifier for one grid unit, e.g. "2026-08-05T23:30".
- *
- * Keys carry their date so a booking that runs past midnight occupies units on
- * both days, and the unique index rejects an overlap on either side.
+ * e.g. "2026-08-05T23:30". Keys carry their date so a booking running past
+ * midnight occupies units on both days, and the unique index rejects an overlap
+ * on either side.
  */
 export function slotKey(date: string, time: string): string {
   return `${date}T${time}`;
@@ -57,7 +51,6 @@ export function computeEnd(
   return { endDate: date, endTime: toTimeString(total) };
 }
 
-/** Every grid unit a booking occupies, as absolute keys. */
 export function buildSlotKeys(
   date: string,
   startTime: string,
@@ -74,7 +67,7 @@ export function buildSlotKeys(
   return keys;
 }
 
-/** The full grid of keys for one date — used to find everything occupying that day. */
+/** Used to find everything occupying a given day. */
 export function keysForDate(date: string): string[] {
   const keys: string[] = [];
   for (let minute = 0; minute < MINUTES_PER_DAY; minute += SLOT_MINUTES) {
@@ -84,15 +77,12 @@ export function keysForDate(date: string): string[] {
 }
 
 /**
- * Whether a unit falls inside the pitch's working hours.
+ * The working window repeats daily and may wrap past midnight — "12 م to 6 ص" is
+ * the case this exists for. Equal ends are read as always open: of the two
+ * readings, only that one leaves the owner able to take a booking.
  *
- * The window repeats every day and may wrap past midnight — "12 م to 6 ص" is a
- * normal way to run a football pitch, and is the case this exists for. A window
- * whose two ends are equal is treated as always open rather than always closed:
- * of the two readings, only one leaves the owner able to take a booking.
- *
- * Testing the unit's *start* minute is enough because both the grid and the
- * window sit on SLOT_MINUTES boundaries, which the settings validator enforces.
+ * Testing the unit's *start* minute suffices because grid and window both sit on
+ * SLOT_MINUTES boundaries, which the settings validator enforces.
  */
 export function isWithinOpenHours(time: string, opensAt: string, closesAt: string): boolean {
   const minute = toMinutes(time);
@@ -104,7 +94,6 @@ export function isWithinOpenHours(time: string, opensAt: string, closesAt: strin
   return minute >= open || minute < close;
 }
 
-/** Whether a duration is a legal booking length. */
 export function isValidDuration(minutes: number): boolean {
   return (
     Number.isInteger(minutes) &&

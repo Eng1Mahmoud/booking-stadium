@@ -14,8 +14,8 @@ const router = createRouter({
       name: 'booking',
       component: () => import('@/views/BookingPage.vue'),
     },
-    // Staff routes are intentionally unlinked from the public UI — reachable by
-    // typing the URL. The auth guard below, not the missing link, is the access control.
+    // Unlinked from the public UI, reachable by typing the URL. The guard below,
+    // not the missing link, is the access control.
     {
       path: '/admin/login',
       name: 'admin-login',
@@ -29,8 +29,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      // Role-agnostic on purpose: the /api/admins/me routes sit above the
-      // requireSuperAdmin gate, so every staff role can reach this.
+      // Role-agnostic: /api/admins/me sits above the requireSuperAdmin gate.
       path: '/admin/account',
       name: 'admin-account',
       component: () => import('@/views/AdminAccount.vue'),
@@ -62,8 +61,7 @@ router.beforeEach(async (to) => {
     if (!authStore.isAuthenticated()) {
       return { name: 'admin-login', query: { redirect: to.fullPath } }
     }
-    // Recovers username/role after a reload, and rejects tokens whose account
-    // was deactivated while the tab was open.
+    // Also rejects a session whose account was deactivated mid-tab.
     if (!(await authStore.restoreSession())) {
       return { name: 'admin-login', query: { redirect: to.fullPath } }
     }

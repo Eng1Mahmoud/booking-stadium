@@ -1,10 +1,7 @@
-/**
- * Per-IP request caps. Attached in app.ts (the broad one) and on the two
- * endpoints worth protecting individually. Exceeding a limit returns 429.
- */
+/** Per-IP caps; exceeding one returns 429. */
 import rateLimit from 'express-rate-limit';
 
-/** Generic API-wide limiter — a coarse backstop against abuse/scraping. */
+/** Coarse backstop against abuse and scraping. */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
@@ -12,7 +9,7 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-/** Tight limiter on login to slow down credential brute-forcing. */
+/** Tight, to slow credential brute-forcing. */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -21,7 +18,7 @@ export const loginLimiter = rateLimit({
   message: { error: 'محاولات تسجيل دخول كثيرة جدًا، يرجى المحاولة مرة أخرى لاحقًا.' },
 });
 
-/** Limits how fast one client can create public bookings (anti-spam). */
+/** Anti-spam on public bookings. */
 export const createBookingLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 20,

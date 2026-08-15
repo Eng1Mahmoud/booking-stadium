@@ -1,17 +1,14 @@
 import { NextFunction, Request, Response } from 'express';
 import { AppError } from '../utils/AppError.js';
 
-/** 404 handler — mounted after all routes. */
 export const notFound = (req: Request, res: Response): void => {
   res.status(404).json({ error: `المسار غير موجود: ${req.method} ${req.originalUrl}` });
 };
 
 /**
- * Centralized error handler — the single place that decides what error detail
- * is safe to send to clients. Known/operational errors (AppError, Mongoose
- * validation, duplicate key) get a clean message; anything unexpected is
- * logged server-side and reported generically so we never leak internals
- * (stack traces, driver errors, file paths) to the client.
+ * The single place deciding what error detail is safe to send. Operational
+ * errors get a clean message; anything unexpected is logged server-side and
+ * reported generically, so stack traces and driver errors never reach a client.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler = (err: unknown, req: Request, res: Response, next: NextFunction): void => {
@@ -33,7 +30,7 @@ export const errorHandler = (err: unknown, req: Request, res: Response, next: Ne
       return;
     }
 
-    // MongoDB duplicate key error (e.g. the date+startTime unique index)
+    // Duplicate key — in practice the slotKeys unique index.
     if ('code' in err && (err as { code?: number }).code === 11000) {
       res.status(409).json({ error: 'هذا الموعد محجوز بالفعل' });
       return;

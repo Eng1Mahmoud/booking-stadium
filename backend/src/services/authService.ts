@@ -1,5 +1,3 @@
-/** Signing in: checking a password and issuing the JWT the controller puts in
- * an httpOnly cookie. Pure logic — no req/res here. */
 import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -45,7 +43,7 @@ class AuthService {
     }
 
     // Travels inside the token *and* back to the caller, so a later request can
-    // prove it came from our frontend and not just from the user's browser.
+    // prove it came from our frontend, not just from the user's browser.
     const csrfToken = randomBytes(32).toString('hex');
 
     const payload: JwtPayload = { id: admin.id, role: admin.role, csrf: csrfToken };

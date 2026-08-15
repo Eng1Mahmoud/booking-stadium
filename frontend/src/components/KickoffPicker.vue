@@ -8,12 +8,9 @@ import type { EndOption } from '@/utils/availability'
 import type { HourCell, SlotStatus, TimelineSlot } from '@/types'
 
 /**
- * Picking a slot the way a match is actually described: a kick-off and a
- * length. The end is derived from those two and only ever displayed.
- *
- * Shared by the player page and the staff walk-in panel. Elapsed hours are shut
- * to both; `allowClosed` is the single exemption staff get, for taking a booking
- * outside the pitch's working hours by arrangement.
+ * A slot described the way a match is: a kick-off and a length, with the end
+ * derived. Shared by the player page and the staff walk-in panel — elapsed hours
+ * are shut to both, and `allowClosed` is the single exemption staff get.
  */
 
 const props = withDefaults(
@@ -21,7 +18,6 @@ const props = withDefaults(
     /** Selected day's units followed by the next morning's overhang. */
     timeline: TimelineSlot[]
     startIndex: number | null
-    /** Chosen length; the end time is derived from it. */
     durationMinutes: number | null
     slotMinutes: number
     minMinutes: number
@@ -29,7 +25,7 @@ const props = withDefaults(
     pricePerHour: number
     currency: string
     loading?: boolean
-    /** Staff only — see the note on RangeRules.allowClosed. */
+    /** Staff only — see RangeRules.allowClosed. */
     allowClosed?: boolean
   }>(),
   { loading: false, allowClosed: false },
@@ -48,23 +44,22 @@ const STATUS_LABEL: Record<SlotStatus, string> = {
   available: '',
   booked: 'محجوز',
   blocked: 'مغلق',
-  // Distinct wording from "مغلق" on purpose: that is a staff decision about one
-  // date, this is the pitch simply not working at that hour.
+  // Worded apart from "مغلق": that is a staff decision about one date, this is
+  // the pitch simply not working at that hour.
   closed: 'خارج الدوام',
   passed: 'انتهى',
 }
 
-/** Timeline index behind each hour cell, so a press can be turned back into a start. */
+/** Lets a press be turned back into a timeline index. */
 const indexByHour = new Map<number, number>()
 
 /**
- * Only the selected date's own units can be a kick-off. The next-day overhang
- * exists purely as end territory — starting there is both redundant (choose
- * tomorrow in the calendar) and a dead end, since too few units are fetched
- * beyond it to ever reach a legal end.
+ * Only the selected date's own units can be a kick-off. The next-day overhang is
+ * end territory only — starting there is redundant (pick tomorrow in the
+ * calendar) and a dead end, since too few units follow it to reach a legal end.
  *
- * Keyed by minutes-since-midnight so the two units inside an hour can be looked
- * up directly, without assuming the timeline starts at 00:00.
+ * Keyed by minutes-since-midnight so an hour's two units can be looked up
+ * without assuming the timeline starts at 00:00.
  */
 const unitsByMinute = computed(() => {
   const map = new Map<number, { slot: TimelineSlot; index: number }>()
@@ -82,14 +77,11 @@ function fits(entry: { slot: TimelineSlot; index: number } | undefined): boolean
 }
 
 /**
- * One cell per hour of the day — 24 buttons rather than the 48 the half-hour
- * grid really contains.
- *
- * Halving the list must not cost availability, so a cell resolves to whichever
- * start inside its hour is actually bookable. Normally that is the hour itself;
- * when the hour is taken but its half-hour mark is free, the cell offers 8:30
- * rather than disappearing. That is what keeps a staff booking of 10:30–11:30 —
- * or simply the clock passing 8:15 — from stranding the time after it.
+ * 24 buttons rather than the 48 units the grid really holds — without losing any
+ * of them. A cell resolves to whichever start inside its hour is bookable:
+ * normally the hour itself, but 8:30 when 8:00 is taken. That is what stops a
+ * staff booking of 10:30–11:30, or the clock passing 8:15, from stranding the
+ * time after it.
  */
 const cells = computed<HourCell[]>(() => {
   indexByHour.clear()
@@ -109,8 +101,8 @@ const cells = computed<HourCell[]>(() => {
 
     if (fits(halfHour)) {
       indexByHour.set(hour, halfHour!.index)
-      // Named rather than left to the digits: an hour that starts at half past
-      // is a surprise, and the label alone is easy to skim over.
+      // Named, not left to the digits: a half-past start is a surprise, and the
+      // label alone is easy to skim over.
       return {
         hour,
         label: formatTime12h(halfHour!.slot.startTime),
@@ -124,8 +116,8 @@ const cells = computed<HourCell[]>(() => {
       hour,
       label: `${hours12} ${period}`,
       disabled: true,
-      // A free hour with nothing bookable after it says so, rather than looking
-      // identical to one somebody else has taken.
+      // A free hour too short to use says so, rather than looking identical to
+      // one somebody else has taken.
       note: status === 'available' ? 'أقل من ساعة' : STATUS_LABEL[status],
       status,
     }
@@ -138,15 +130,13 @@ const selectedStart = computed(() =>
   props.startIndex === null ? null : (props.timeline[props.startIndex] ?? null),
 )
 
-/** Which hour button to light up — the one whose start we are actually using. */
 const selectedHours = computed(() => {
   if (props.startIndex === null) return []
   const hour = [...indexByHour.entries()].find(([, index]) => index === props.startIndex)?.[0]
   return hour === undefined ? [] : [hour]
 })
 
-/** Legal lengths for the chosen kick-off, ascending. The list is a contiguous
- *  prefix, so the last chip is genuinely the longest booking that fits here. */
+/** A contiguous prefix, so the last chip really is the longest booking that fits. */
 const lengths = computed(() =>
   props.startIndex === null ? [] : endOptionsFor(props.timeline, props.startIndex, rules.value),
 )
@@ -163,9 +153,8 @@ function chooseHour(cell: HourCell) {
   const index = indexByHour.get(cell.hour)
   if (index === undefined) return
 
-  // Keep the current length if it still fits, so nudging the kick-off by an hour
-  // doesn't throw the choice away. Otherwise fall to the shortest legal one,
-  // which leaves the booking complete after a single tap.
+  // Keep the current length if it still fits, so nudging the kick-off doesn't
+  // throw the choice away; otherwise the shortest, leaving a complete booking.
   const options = endOptionsFor(props.timeline, index, rules.value)
   const kept = options.find((option) => option.durationMinutes === props.durationMinutes)
   emit('select', index, (kept ?? options[0])?.durationMinutes ?? null)
@@ -224,7 +213,6 @@ function chooseLength(option: EndOption) {
           </button>
         </div>
 
-        <!-- The scoreboard: kick-off, end, and what it costs, read at a glance. -->
         <div
           v-if="current"
           class="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-t border-turf-700/60 pt-4"

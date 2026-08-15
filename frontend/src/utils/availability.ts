@@ -12,33 +12,26 @@ export interface RangeRules {
   minMinutes: number
   maxMinutes: number
   /**
-   * Count hours outside the pitch's working window as bookable. Off for players,
-   * on for staff: the owner takes bookings outside opening hours by arrangement,
-   * and the API grants staff the same exemption.
-   *
-   * Elapsed hours are deliberately *not* covered by this — those are closed to
-   * everyone.
+   * Count hours outside the pitch's working window as bookable — staff only, and
+   * matching the exemption the API grants them. Elapsed hours are deliberately
+   * not covered: those are shut to everyone.
    */
   allowClosed?: boolean
 }
 
-/** A unit somebody may still be given. `closed` counts only for staff. */
 function isFree(slot: TimelineSlot | undefined, allowClosed?: boolean): boolean {
   if (!slot) return false
   return slot.status === 'available' || (Boolean(allowClosed) && slot.status === 'closed')
 }
 
 export interface EndOption {
-  /** How many grid units the range covers. */
   units: number
   durationMinutes: number
-  /** The real end time, wrapped into 00:00–23:59. */
+  /** Wrapped into 00:00–23:59, so it can read earlier than the start. */
   endTime: string
-  /** True when the end lands on the day after the start slot's own date. */
   crossesMidnight: boolean
 }
 
-/** True if every unit in [startIndex, startIndex + units) exists and is free. */
 export function isSpanFree(
   timeline: TimelineSlot[],
   startIndex: number,
@@ -88,10 +81,7 @@ export function endOptionsFor(
   return options
 }
 
-/**
- * Whether a start is worth offering at all. Equivalent to "the shortest legal
- * booking fits here", which is cheaper than building the full option list.
- */
+/** Cheaper than building the full option list when all you need is a yes/no. */
 export function hasAnyEnd(
   timeline: TimelineSlot[],
   startIndex: number,

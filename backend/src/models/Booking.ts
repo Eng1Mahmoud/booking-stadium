@@ -1,4 +1,3 @@
-/** Database shape of a booking, and the index that stops double-booking. */
 import { Schema, model, Types } from 'mongoose';
 import type { BookingSource, BookingStatus } from '../types/index.js';
 
@@ -8,15 +7,15 @@ export interface IBooking {
   endDate: string; // "2026-08-11" when the booking runs past midnight
   endTime: string; // "01:00"
   durationMinutes: number;
-  /** What the player was quoted, snapshotted so a later rate change can't rewrite history. */
+  /** Snapshotted, so a later rate change can't rewrite history. */
   price: number;
-  /** Absolute grid units occupied, e.g. ["2026-08-10T23:00","2026-08-10T23:30","2026-08-11T00:00"]. */
+  /** e.g. ["2026-08-10T23:30","2026-08-11T00:00"]. */
   slotKeys: string[];
   playerName: string;
   playerPhone: string;
   status: BookingStatus;
   bookingSource: BookingSource;
-  /** Which staff account recorded this. Absent for a booking a player made themselves. */
+  /** Absent for a booking a player made themselves. */
   createdBy?: Types.ObjectId;
 }
 
@@ -39,20 +38,14 @@ const BookingSchema = new Schema<IBooking>(
 );
 
 /**
- * Database-level guarantee against double booking.
+ * Double-booking is prevented here rather than by a check-then-insert two
+ * concurrent requests could both pass: a unique multikey index forbids two
+ * documents from sharing any array element, which is exactly interval exclusion.
  *
- * The keys are absolute ("2026-08-10T23:30"), so a booking running from 23:00
- * to 01:00 occupies units on both dates and a unique multikey index rejects an
- * overlap from either day. A unique multikey index forbids two documents from
- * sharing any array element, which is precisely interval exclusion — enforced
- * by the database rather than by a check-then-insert two concurrent requests
- * can both pass.
- *
- * Not compounded with `date`: a cross-midnight booking's later units belong to
- * a different date than the one stored on the document, so pairing them would
- * miss exactly the overlaps this exists to catch.
- *
- * Partial filter so a cancelled booking releases its units for rebooking.
+ * Not compounded with `date` — a cross-midnight booking's later units belong to
+ * a different date than the document stores, so pairing them would miss exactly
+ * the overlaps this exists to catch. Partial filter so a cancelled booking
+ * releases its units.
  */
 BookingSchema.index(
   { slotKeys: 1 },

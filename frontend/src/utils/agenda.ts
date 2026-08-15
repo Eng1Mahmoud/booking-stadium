@@ -1,11 +1,8 @@
 import { MINUTES_PER_DAY, slotKey, toMinutes } from './time'
 import type { AvailabilitySlot, BlockedSlot, Booking } from '@/types'
 
-/**
- * Folds a day's half-hour units into the smallest set of bands that describes
- * it, so a day with three events renders three cards instead of forty-eight
- * rows. Pure and Vue-free.
- */
+/** Folds a day's units into the fewest bands that describe it, so three events
+ *  render three cards instead of forty-eight rows. */
 
 export type BandKind = 'free' | 'booked' | 'blocked' | 'past'
 
@@ -18,9 +15,7 @@ export interface AgendaBand {
   minutes: number
   booking?: Booking
   blocked?: BlockedSlot
-  /** The booking began on an earlier date. */
   startedEarlier: boolean
-  /** The booking continues past this date's midnight. */
   endsLater: boolean
 }
 
@@ -33,7 +28,7 @@ export interface DayTotals {
   hasSplit: boolean
 }
 
-/** Half-open overlap on plain times — only valid for same-day ranges like blocks. */
+/** Only valid for same-day ranges like blocks. */
 function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return aStart < bEnd && aEnd > bStart
 }
@@ -44,13 +39,11 @@ export function buildAgenda(
   bookings: Booking[],
   blockedSlots: BlockedSlot[],
 ): AgendaBand[] {
-  // Phase 1 — classify each unit. Precedence matches the staff view's rule that
-  // a booking still reads as booked once it has started, unlike the player view
-  // where 'passed' wins.
+  // Precedence differs from the player view: a booking still reads as booked
+  // once it has started, where the player view would say 'passed'.
   const units = slots.map((slot) => {
-    // Matched by absolute key, never by comparing times: a booking that began at
-    // 23:00 yesterday carries startTime "23:00" and yesterday's date, which no
-    // same-day time comparison would match against this morning's 00:00.
+    // Matched by absolute key, never by comparing times: a booking that began
+    // 23:00 yesterday would match nothing against this morning's 00:00.
     const key = slotKey(date, slot.startTime)
     const booking = bookings.find((b) => b.status === 'confirmed' && b.slotKeys?.includes(key))
     const blocked = booking
@@ -70,13 +63,12 @@ export function buildAgenda(
       kind,
       booking,
       blocked,
-      // Distinct bookings never merge, and elapsed free time stays separate from
-      // upcoming free time so the "now" divider has somewhere to sit.
+      // Elapsed free time stays separate from upcoming, so the "now" divider
+      // has somewhere to sit.
       identity: `${kind}:${booking?._id ?? blocked?._id ?? ''}`,
     }
   })
 
-  // Phase 2 — fold runs of identical identity.
   const bands: AgendaBand[] = []
   for (let i = 0; i < units.length;) {
     let j = i + 1
@@ -107,18 +99,17 @@ export function buildAgenda(
 }
 
 /**
- * Day figures, derived from the bands rather than the raw arrays: the bands have
- * already resolved booked-beats-blocked-beats-passed, so every minute of the day
- * is counted exactly once and the totals match what is on screen.
+ * Derived from the bands rather than the raw arrays: those have already resolved
+ * the precedence, so every minute is counted once and the totals match what is
+ * on screen.
  */
 export function summariseDay(bands: AgendaBand[], date: string): DayTotals {
   const booked = bands.filter((band) => band.kind === 'booked')
   const soldMinutes = booked.reduce((sum, band) => sum + band.minutes, 0)
 
-  // Hours are pro-rated to the date they were played, but revenue lands whole on
-  // the date the booking started — the pitch is paid in cash on arrival, so a
-  // 11pm–1am booking is collected on day one and splitting it would credit money
-  // to a day it never came in on.
+  // Hours are pro-rated to the date played, but revenue lands whole on the date
+  // the booking started: cash is taken on arrival, so splitting an 11pm–1am
+  // booking would credit money to a day it never came in on.
   const revenue = booked.reduce(
     (sum, band) => (band.booking && band.booking.date === date ? sum + band.booking.price : sum),
     0,

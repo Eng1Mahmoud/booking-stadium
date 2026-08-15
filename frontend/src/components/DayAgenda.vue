@@ -7,8 +7,8 @@ import type { AgendaBand } from '@/utils/agenda'
 import type { Booking } from '@/types'
 
 const props = defineProps<{
-  /** Built by the page, which also derives the day's totals from them — one
-   *  fold of the timeline, so the schedule and the figures can't disagree. */
+  /** The page derives the day's totals from these too, so the schedule and the
+   *  figures can't disagree. */
   bands: AgendaBand[]
   date: string
   currency: string
@@ -22,10 +22,8 @@ const emit = defineEmits<{
   blockRange: [range: { startTime: string; endTime: string }]
 }>()
 
-/**
- * Where the "now" line sits. Derived from the clock rather than from the last
- * elapsed band, so a booking interrupting the elapsed stretch can't misplace it.
- */
+/** From the clock rather than the last elapsed band, so a booking interrupting
+ *  the elapsed stretch can't misplace it. */
 const nowBoundary = computed(() => {
   const now = dayjs()
   if (props.date !== now.format('YYYY-MM-DD')) return null
@@ -95,9 +93,8 @@ const RAIL: Record<AgendaBand['kind'], string> = {
             </button>
           </template>
 
-          <!-- Elapsed time is a record, not a control: both panels refuse hours
-               that have already gone, so tapping one here would open a form that
-               can't accept it. -->
+          <!-- A record, not a control: both panels refuse hours that have gone,
+               so tapping one would open a form that can't accept it. -->
           <template v-else-if="band.kind === 'past'">
             <span class="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-2 py-2.5">
               <span class="text-sm font-medium tabular-nums text-chalk-600">

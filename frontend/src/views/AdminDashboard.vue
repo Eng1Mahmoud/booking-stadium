@@ -23,15 +23,13 @@ const formattedDate = computed(() => formatArabicDate(selectedDate.value))
 
 const activePanel = ref<'none' | 'add' | 'block'>('none')
 
-// The walk-in panel speaks the same kick-off-plus-length language as the player
-// page, so it stores an index into the timeline rather than a pair of times.
 const manualForm = ref({
   startIndex: null as number | null,
   durationMinutes: null as number | null,
   playerName: '',
   playerPhone: '',
 })
-// A block is a span of whole hours; the times the API wants are derived at submit.
+// Whole hours; the times the API wants are derived at submit.
 const blockForm = ref({
   startHour: null as number | null,
   endHour: null as number | null,
@@ -76,8 +74,6 @@ function selectBlockRange(startHour: number | null, endHour: number | null) {
 }
 
 function load() {
-  // Availability supplies the canonical hour grid; the other two fill in who
-  // holds each hour and why it's closed.
   bookingStore.fetchAvailability(selectedDate.value)
   bookingStore.fetchAdminBookings(selectedDate.value)
   bookingStore.fetchBlockedSlots(selectedDate.value)
@@ -92,8 +88,8 @@ async function submitManualBooking() {
   formError.value = null
   const { startIndex, durationMinutes, playerName, playerPhone } = manualForm.value
 
-  // The picker only ever offers legal lengths, so there is no duration arithmetic
-  // to re-check here — just that a slot was actually chosen.
+  // The picker only offers legal lengths, so there is nothing to re-check but
+  // that a slot was chosen at all.
   const slot = startIndex === null ? null : bookingStore.timeline[startIndex]
   if (
     !slot ||
@@ -169,12 +165,9 @@ async function handleUnblock(id: string) {
 }
 
 /**
- * Tapping a free band opens the walk-in form pre-filled with it.
- *
- * The length is taken from the picker's own option list rather than computed
- * here — the longest one the band can hold. That keeps an empty day, which
- * arrives as a single 24-hour band, from pre-filling a length the server would
- * refuse for reasons the user can't see.
+ * The length comes from the picker's own option list — the longest the band can
+ * hold — so an empty day, which arrives as a single 24-hour band, can't pre-fill
+ * a length the server would refuse for reasons the user can't see.
  */
 function handlePickFree({ startTime, endTime }: { startTime: string; endTime: string }) {
   const startIndex = bookingStore.timeline.findIndex(
@@ -232,7 +225,6 @@ onMounted(async () => {
 
     <div>
       <div class="mt-8 grid gap-6 lg:grid-cols-[20rem_1fr] lg:gap-8 lg:items-start">
-        <!-- Date picker column -->
         <div class="lg:sticky lg:top-6">
           <h2 class="mb-3 text-sm font-bold text-chalk-50">اختر اليوم</h2>
           <DatePicker v-model="selectedDate" :days-ahead="365" />
@@ -248,7 +240,6 @@ onMounted(async () => {
           </p>
         </div>
 
-        <!-- Day column -->
         <div>
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-lg font-bold text-chalk-50">

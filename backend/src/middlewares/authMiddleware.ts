@@ -5,19 +5,14 @@ import { AUTH_COOKIE } from '../utils/cookies.js';
 import type { JwtPayload } from '../types/index.js';
 
 /**
- * The "you must be signed in" guard. Put it on any staff-only route.
+ * The "you must be signed in" guard, for any staff-only route. `Authorization:
+ * Bearer` is accepted as a fallback for non-browser callers, which have no
+ * cookie jar and aren't exposed to CSRF in the first place.
  *
- * It reads the httpOnly session cookie the browser attaches on its own, and on
- * success hangs `req.user` on the request so every handler after it knows who is
- * asking. The `Authorization: Bearer` header is still accepted as a fallback for
- * non-browser callers (curl, scripts), which have no cookie jar and are not
- * exposed to CSRF in the first place.
- *
- * Note it hits the database rather than trusting the token alone. A JWT stays
- * cryptographically valid until it expires, so a colleague you deactivated at
- * noon would keep full access until midnight. Re-reading the account makes the
- * *database* the source of truth for role and status, and a deactivation take
- * effect on the very next request. Cost is one indexed lookup.
+ * It hits the database rather than trusting the token alone: a JWT stays valid
+ * until it expires, so a colleague deactivated at noon would otherwise keep full
+ * access until midnight. One indexed lookup makes the database the source of
+ * truth for role and status, and a deactivation take effect on the next request.
  */
 export const requireAuth = async (
   req: Request,
@@ -50,10 +45,7 @@ export const requireAuth = async (
   }
 };
 
-/**
- * The "and you must be the owner" guard, for staff and pricing routes.
- * Always runs *after* `requireAuth`, since it reads the `req.user` that sets.
- */
+/** Runs after `requireAuth`, since it reads the `req.user` that sets. */
 export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
   if (req.user?.role !== 'superadmin') {
     res.status(403).json({ error: 'هذا الإجراء متاح للمدير العام فقط' });

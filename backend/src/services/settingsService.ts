@@ -1,5 +1,3 @@
-/** The owner’s site-wide settings — the hourly rate and the currency.
- * Pure logic — no req/res here. */
 import Setting, { DEFAULT_SETTINGS } from '../models/Setting.js';
 import {
   MAX_BOOKING_MINUTES,
@@ -8,11 +6,8 @@ import {
 } from '../utils/time.js';
 
 class SettingsService {
-  /**
-   * Reads the settings row, creating it with defaults on first call.
-   * Upsert rather than find-then-create so two simultaneous first requests
-   * can't both try to insert.
-   */
+  /** Upsert rather than find-then-create, so two simultaneous first requests
+   *  can't both try to insert. */
   async get() {
     return Setting.findOneAndUpdate(
       { singleton: 'global' },
@@ -36,7 +31,6 @@ class SettingsService {
     return settings;
   }
 
-  /** Everything the booking UI needs to render prices and validate a range. */
   async publicConfig() {
     const settings = await this.get();
     return {
@@ -50,10 +44,8 @@ class SettingsService {
     };
   }
 
-  /**
-   * Price of a booking, billed pro-rata for half hours. The result is stored on
-   * the booking so a later rate change never rewrites what someone was quoted.
-   */
+  /** Stored on the booking, so a later rate change never rewrites what someone
+   *  was quoted. */
   async priceFor(durationMinutes: number): Promise<number> {
     const { pricePerHour } = await this.get();
     return Math.round((durationMinutes / 60) * pricePerHour);

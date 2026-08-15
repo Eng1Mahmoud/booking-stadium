@@ -43,11 +43,8 @@ const isValid = computed(
     currencyDraft.value.trim().length > 0,
 )
 
-/**
- * What the draft rate actually charges. The pitch is booked in half hours, so
- * showing the four common lengths is more use than any explanation of the
- * formula — the owner types a number and reads the bill.
- */
+/** Four common lengths are more use than explaining the formula — the owner
+ *  types a number and reads the bill. */
 const preview = computed(() => {
   const rate = priceDraft.value ?? 0
   const currency = currencyDraft.value.trim() || saved.value?.currency || ''
@@ -58,8 +55,8 @@ const preview = computed(() => {
   }))
 })
 
-/** Every point on the half-hour grid; "24:00" is offered as a closing time only,
- *  since it means midnight ending the day rather than opening it. */
+/** "24:00" is a closing time only — it means midnight ending the day, which
+ *  "00:00" would read as opening it. */
 const gridTimes = Array.from({ length: MINUTES_PER_DAY / SLOT_MINUTES }, (_, i) =>
   toTimeString(i * SLOT_MINUTES),
 )
@@ -73,10 +70,10 @@ const hoursDirty = computed(
 )
 
 const hoursValid = computed(
-  () => opensDraft.value !== '' && closesDraft.value !== '' && opensDraft.value !== closesDraft.value,
+  () =>
+    opensDraft.value !== '' && closesDraft.value !== '' && opensDraft.value !== closesDraft.value,
 )
 
-/** How long the window runs, wrapping when it passes midnight. */
 const openMinutes = computed(() => {
   const open = toMinutes(opensDraft.value || '00:00')
   const close = toMinutes(closesDraft.value || '24:00')
@@ -89,7 +86,7 @@ const wrapsMidnight = computed(
 
 const isAlwaysOpen = computed(() => openMinutes.value >= MINUTES_PER_DAY)
 
-/** The mirror image of the window — what the owner is actually shutting. */
+/** What the owner is actually shutting. */
 const closedLabel = computed(() =>
   isAlwaysOpen.value
     ? ''
@@ -253,8 +250,8 @@ onMounted(async () => {
       >
         <h2 class="font-display text-xl font-black text-chalk-50">مواعيد العمل</h2>
         <p class="mt-1.5 text-sm text-chalk-400">
-          تتكرر كل يوم. اللاعبون لا يستطيعون الحجز خارجها، أما الموظفون فيستطيعون تسجيل حجز
-          خارجها بالاتفاق.
+          تتكرر كل يوم. اللاعبون لا يستطيعون الحجز خارجها، أما الموظفون فيستطيعون تسجيل حجز خارجها
+          بالاتفاق.
         </p>
 
         <div class="mt-5 grid gap-4 sm:grid-cols-2 sm:max-w-md">
@@ -284,12 +281,10 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- A window that wraps past midnight is hard to picture from two fields
-             alone, so state the span and its mirror image before it is saved. -->
+        <!-- A wrapping window is hard to picture from two fields alone, so state
+             the span and its mirror image before it is saved. -->
         <div class="mt-5 space-y-1.5 border-t border-turf-700/60 pt-4 text-sm">
-          <p v-if="!hoursValid" class="text-card-yellow">
-            اختر وقتين مختلفين للفتح والإغلاق.
-          </p>
+          <p v-if="!hoursValid" class="text-card-yellow">اختر وقتين مختلفين للفتح والإغلاق.</p>
           <template v-else>
             <p class="text-chalk-300">
               <span aria-hidden="true">▸</span>

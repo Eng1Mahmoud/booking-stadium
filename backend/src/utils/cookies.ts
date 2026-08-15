@@ -1,17 +1,12 @@
 /**
- * The one place that decides how the session cookie is written and cleared.
+ * The admin JWT lives in an httpOnly cookie, so no script on the page can read
+ * it — XSS can still *act* as the admin while the page is open, but can no longer
+ * walk off with a token that keeps working elsewhere.
  *
- * The admin JWT lives in an httpOnly cookie, so no JavaScript on the page can
- * read it — an XSS payload can still *act* as the admin while the page is open,
- * but it can no longer exfiltrate a token that keeps working elsewhere.
- *
- * Frontend and API sit on different sites in production (Vercel ↔ Render), so
- * the cookie has to be `SameSite=None; Secure` to be sent at all. That is what
- * makes the CSRF check in middlewares/csrf.ts mandatory rather than optional:
- * `None` gives up the cross-site protection `Lax` would have provided for free.
- *
- * Locally both sides are localhost — same site, different ports — so `Lax` works
- * and `Secure` would be a nuisance over plain http.
+ * Frontend and API sit on different sites in production (Vercel ↔ Render), so the
+ * cookie must be `SameSite=None; Secure` to be sent at all — which is what makes
+ * the CSRF check in middlewares/csrf.ts mandatory rather than optional. Locally
+ * both ends are localhost, so `Lax` works and `Secure` only gets in the way.
  */
 import type { CookieOptions, Response } from 'express';
 

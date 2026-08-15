@@ -7,9 +7,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 async function handleLogout() {
-  // Awaited so we leave only once the server has actually cleared the cookie.
   await authStore.logout()
-  // Leave the dashboard explicitly — clearing the session alone doesn't re-run the guard.
+  // Explicit: clearing the session alone doesn't re-run the guard.
   router.push('/')
 }
 </script>
@@ -17,7 +16,7 @@ async function handleLogout() {
 <template>
   <div class="min-h-screen flex flex-col">
     <header class="border-b border-turf-700/60">
-      <!-- Wraps rather than overflowing: signed in as a superadmin the nav runs
+      <!-- Wraps rather than overflows: as a superadmin the nav runs
            to three items, which together with the wordmark needs more than a
            360px phone has. -->
       <div
@@ -37,7 +36,7 @@ async function handleLogout() {
           class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium text-chalk-400"
         >
           <template v-if="authStore.isAuthenticated()">
-            <!-- Redundant on the staff pages, which carry their own tab bar, so
+            <!-- Redundant on staff pages, which carry their own tab bar, so
                  it only appears where there is no other way back. -->
             <RouterLink
               v-if="!String(route.name ?? '').startsWith('admin')"

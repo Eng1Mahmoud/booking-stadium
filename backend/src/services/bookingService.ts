@@ -1,5 +1,3 @@
-/** The heart of the app: what's free on a given day, and making or cancelling
- * a booking. Pure logic — no req/res here. */
 import dayjs from 'dayjs';
 import Booking from '../models/Booking.js';
 import BlockedSlot from '../models/BlockedSlot.js';
@@ -35,12 +33,12 @@ export interface AvailabilitySlot {
   status: SlotState;
 }
 
-/** True if [aStart,aEnd) overlaps [bStart,bEnd) — fixed-width strings compare safely. */
+/** Fixed-width strings compare safely, so no parsing needed. */
 function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return aStart < bEnd && aEnd > bStart;
 }
 
-/** True once a slot's start has passed in real time. Only ever true for today or earlier. */
+/** Only ever true for today or earlier. */
 function hasElapsed(date: string, startTime: string, now: dayjs.Dayjs): boolean {
   const day = dayjs(date);
   if (day.isBefore(now, 'day')) return true;
@@ -50,11 +48,8 @@ function hasElapsed(date: string, startTime: string, now: dayjs.Dayjs): boolean 
 
 class BookingService {
   /**
-   * The 48 half-hour units of one date, each labelled with why it can't be booked.
-   *
-   * Bookings are matched by slot key rather than by time range, which is what
-   * makes last night's 23:00-01:00 booking correctly occupy this morning's
-   * 00:00 and 00:30 units.
+   * Matching bookings by slot key rather than time range is what makes last
+   * night's 23:00-01:00 correctly occupy this morning's 00:00 and 00:30.
    */
   async getAvailability(date: string): Promise<AvailabilitySlot[]> {
     const dayKeys = keysForDate(date);
@@ -81,10 +76,9 @@ class BookingService {
       );
       const isClosed = !isWithinOpenHours(startTime, settings.opensAt, settings.closesAt);
 
-      // "Already gone" is reported ahead of booked/blocked: to a player deciding
-      // tonight, that is the more useful reason. `closed` comes last of the four
-      // because booked and blocked are facts about this particular hour, while
-      // being outside working hours is merely the default state of the clock.
+      // "Already gone" outranks booked/blocked: to a player deciding tonight
+      // that is the more useful reason. `closed` comes last — the others are
+      // facts about this hour, while working hours are the clock's default.
       const status: SlotState = hasElapsed(date, startTime, now)
         ? 'passed'
         : isBooked
@@ -99,10 +93,7 @@ class BookingService {
     });
   }
 
-  /**
-   * Rejects a range that collides with a blocked slot. Booking collisions are
-   * left to the unique index — it is the only check that can't be raced.
-   */
+  /** Booking collisions are left to the unique index — the only unraceable check. */
   private async assertNotBlocked(keys: string[]): Promise<void> {
     const dates = [...new Set(keys.map((key) => key.split('T')[0]!))];
     const blocked = await BlockedSlot.find({ date: { $in: dates } }).lean();
@@ -124,7 +115,7 @@ class BookingService {
     }
   }
 
-  /** `createdBy` is the staff account recording a walk-in; absent for a player's own booking. */
+  /** `createdBy` is set only when staff record a walk-in. */
   async createBooking(
     input: CreateBookingInput,
     source: BookingSource = 'online',
@@ -142,10 +133,9 @@ class BookingService {
       throw new AppError('انتهى هذا الموعد بالفعل. اختر وقتًا لاحقًا.', 409);
     }
 
-    // Working hours bind players only — staff take bookings outside them for a
-    // private match or an arrangement made by phone. Every unit is checked, not
-    // just the kick-off, so a range that starts before closing and runs past it
-    // is refused as well.
+    // Working hours bind players only; staff take bookings outside them by
+    // arrangement. Every unit is checked, not just the kick-off, so a range
+    // starting before closing and running past it is refused too.
     if (source === 'online') {
       const { opensAt, closesAt } = await settingsService.get();
       for (let offset = 0; offset < durationMinutes; offset += SLOT_MINUTES) {
@@ -188,7 +178,7 @@ class BookingService {
     }
   }
 
-  /** All bookings touching a date, including one that started the night before. */
+  /** Includes a booking that started the night before. */
   async getAllBookings(date?: string) {
     if (!date) return Booking.find().sort({ date: 1, startTime: 1 });
     return Booking.find({ slotKeys: { $in: keysForDate(date) } }).sort({ startTime: 1 });

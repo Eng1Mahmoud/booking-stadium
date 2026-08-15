@@ -1,23 +1,20 @@
-/** Database shape of a staff account. */
 import { Schema, model } from 'mongoose';
 import type { AdminRole } from '../types/index.js';
 
 export interface IAdmin {
   username: string;
   passwordHash: string;
-  /** Who this is, for the staff list and for attributing walk-in bookings. */
   fullName?: string;
-  /** Reachable number, so whoever is on shift can be called. */
   phone?: string;
   role: AdminRole;
   /**
-   * Access is revoked by flipping this, not by deleting the row — the account
-   * can be restored, and the record of who once had access survives.
-   * `protect` re-reads it on every request, so a deactivation takes effect
-   * immediately rather than when the JWT happens to expire.
+   * Access is revoked by flipping this, not by deleting the row: the account can
+   * be restored, and the record of who once had access survives. `requireAuth`
+   * re-reads it every request, so a deactivation takes effect immediately rather
+   * than when the JWT happens to expire.
    */
   isActive: boolean;
-  /** Last successful sign-in. Absent means the account has never been used. */
+  /** Absent means the account has never been used. */
   lastLoginAt?: Date;
   createdBy?: Schema.Types.ObjectId;
 }

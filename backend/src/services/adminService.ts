@@ -1,5 +1,4 @@
-/** Staff-account rules: who may create, edit, promote or deactivate whom.
- * Pure logic — no req/res here, so it works from an endpoint or a script. */
+/** Who may create, edit, promote or deactivate whom. */
 import bcrypt from 'bcryptjs';
 import Admin from '../models/Admin.js';
 import Booking from '../models/Booking.js';
@@ -21,16 +20,12 @@ interface ProfilePatch {
   phone?: string;
 }
 
-/** Fields safe to return over the wire — never the hash. */
+/** Never the hash. */
 const PUBLIC_FIELDS = 'username fullName phone role isActive lastLoginAt createdAt updatedAt';
 
 class AdminService {
-  /**
-   * The staff list, each row carrying what that account has actually done.
-   *
-   * The two counts are aggregated in one pass each rather than per row, so the
-   * list stays a fixed three queries however many staff there are.
-   */
+  /** The counts are aggregated in one pass each, so this stays three queries
+   *  however many staff there are. */
   async list() {
     const [admins, bookingCounts, blockCounts] = await Promise.all([
       Admin.find().select(PUBLIC_FIELDS).sort({ role: 1, username: 1 }).lean(),
@@ -75,10 +70,10 @@ class AdminService {
   }
 
   /**
-   * The rule that actually prevents lockout: nobody can strip their own access.
-   * Since the caller is always an active superadmin, refusing self-targeted
-   * changes means an active superadmin always survives any single action.
-   * Handover still works — promote a colleague, then have them demote you.
+   * The rule that prevents lockout: nobody can strip their own access. The caller
+   * is always an active superadmin, so refusing self-targeted changes means one
+   * always survives any single action. Handover still works — promote a
+   * colleague, then have them demote you.
    */
   private assertNotSelf(targetId: string, actingId: string): void {
     if (targetId === actingId) {
@@ -92,7 +87,6 @@ class AdminService {
     return admin;
   }
 
-  /** Name and phone — the only fields an account holder may change about themselves. */
   async updateProfile(id: string, patch: ProfilePatch) {
     const admin = await this.getOrFail(id);
     if (patch.fullName !== undefined) admin.fullName = patch.fullName;
@@ -127,7 +121,7 @@ class AdminService {
     await admin.save();
   }
 
-  /** Self-service change — requires the current password, so a stolen session can't lock the owner out. */
+  /** Requires the current password, so a stolen session can't lock the owner out. */
   async changeOwnPassword(id: string, currentPassword: string, newPassword: string) {
     const admin = await Admin.findById(id).select('+passwordHash');
     if (!admin) throw new AppError('الحساب غير موجود', 404);

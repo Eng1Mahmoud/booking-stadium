@@ -12,9 +12,6 @@ interface SessionPayload {
 }
 
 export const useAuthStore = defineStore('auth', {
-  // Every nullable field carries its type explicitly. A bare `null` would be
-  // inferred as the literal type `null`, and assigning a username later would
-  // stop compiling.
   state: () => ({
     username: null as string | null,
     role: null as AdminRole | null,
@@ -26,26 +23,21 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isSuperAdmin: (state) => state.role === 'superadmin',
-    /** What to call this person in the UI — their name if they gave one. */
     displayName: (state) => state.fullName || state.username,
   },
 
   actions: {
     /**
-     * A hint, not a verdict. The session cookie is httpOnly, so nothing here can
-     * see whether it is still valid — the stored CSRF value only tells us a login
-     * happened on this browser. `restoreSession` is what actually confirms it, and
-     * the router calls that before letting anyone into a staff route.
+     * A hint, not a verdict: the session cookie is httpOnly, so this can only
+     * tell that a login happened on this browser. `restoreSession` confirms it.
      *
-     * An action rather than a getter on purpose: it reads a cookie, and a cookie
-     * is not reactive. A getter would cache the first answer and go on reporting
-     * a session that has since been cleared.
+     * An action rather than a getter because a cookie is not reactive — a getter
+     * would cache the first answer and go on reporting a cleared session.
      */
     isAuthenticated(): boolean {
       return Boolean(this.role ?? manageCookie.get())
     },
 
-    /** Internal — see the note on staffStore's `_run` about the underscore. */
     _applySession(data: SessionPayload): void {
       this.username = data.username
       this.role = data.role
@@ -75,11 +67,9 @@ export const useAuthStore = defineStore('auth', {
     },
 
     /**
-     * The browser holds the session but can't show it to us, so the username and
-     * role have to be re-fetched before any role-gated UI can render. Doubles as a
-     * liveness check: an expired cookie, or one belonging to a deactivated
-     * account, fails here and logs out. It also re-stores the CSRF value, so a
-     * browser that kept the cookie but lost its copy recovers on its own.
+     * The browser holds the session but can't show it to us, so role-gated UI
+     * needs this before it can render. Doubles as a liveness check: an expired
+     * cookie, or one from a deactivated account, fails here and logs out.
      */
     async restoreSession(): Promise<boolean> {
       if (this.role) return true
@@ -111,9 +101,7 @@ export const useAuthStore = defineStore('auth', {
       } catch {
         // Offline, or the session was already gone. Nothing to recover.
       } finally {
-        // Returns every field to its `state()` value, so a field added later is
-        // cleared here without anyone remembering to. Store state only, which is
-        // why the cookie still has to go separately.
+        // `$reset` covers store state only; the cookie has to go separately.
         this.$reset()
         manageCookie.clear()
       }

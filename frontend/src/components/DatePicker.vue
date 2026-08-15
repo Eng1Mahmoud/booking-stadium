@@ -4,9 +4,7 @@ import dayjs from 'dayjs'
 import { WEEKDAY_HEADERS, formatArabicMonth, weekdayColumn } from '@/utils/date'
 
 const props = defineProps<{
-  /** Currently selected day, "YYYY-MM-DD". */
   modelValue: string
-  /** How many days ahead bookings are open. */
   daysAhead?: number
 }>()
 
@@ -15,8 +13,7 @@ const emit = defineEmits<{ 'update:modelValue': [date: string] }>()
 const today = dayjs().startOf('day')
 const lastBookable = computed(() => today.add(props.daysAhead ?? 60, 'day'))
 
-// The month on screen, which the user can page through independently of their
-// selection — they may want to look ahead before committing to a day.
+// Paged independently of the selection: people look ahead before committing.
 const visibleMonth = ref(dayjs(props.modelValue).startOf('month'))
 
 watch(
@@ -111,7 +108,7 @@ function select(cell: DayCell) {
         {{ header }}
       </span>
 
-      <!-- A fixed square centred in its column, so the buttons stay square and
+      <!-- Fixed square centred in its column, so buttons stay square and
            evenly spaced whatever the card width. -->
       <template v-for="(cell, index) in cells">
         <span v-if="!cell" :key="`pad-${index}`" aria-hidden="true" />

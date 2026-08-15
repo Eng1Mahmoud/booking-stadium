@@ -1,25 +1,23 @@
 import { Schema, model } from 'mongoose';
 
 /**
- * Site-wide settings the owner edits from the dashboard. A single document,
- * pinned by the `singleton` key so there can only ever be one row.
- *
- * The hourly rate lives here rather than in env because it is a business
- * decision the owner changes, not deployment configuration.
+ * A single document, pinned by the `singleton` key so there can only ever be one
+ * row. These live here rather than in env because they are business decisions
+ * the owner changes, not deployment configuration.
  */
 export interface ISetting {
   singleton: 'global';
   pricePerHour: number;
   currency: string;
-  /** Start of the daily working window, "HH:MM" on the half-hour grid. */
+  /** "HH:MM" on the half-hour grid. */
   opensAt: string;
-  /** End of it. May be "24:00", and may be *earlier* than `opensAt` — a window
-   *  running past midnight is normal for a pitch. */
+  /** May be "24:00", and may be *earlier* than `opensAt` — running past midnight
+   *  is normal for a pitch. */
   closesAt: string;
 }
 
-/** Open around the clock, so an install that never touches this behaves exactly
- *  as it did before working hours existed. */
+/** Open around the clock, so an install that never touches this behaves as it
+ *  did before working hours existed. */
 export const DEFAULT_SETTINGS = {
   pricePerHour: 150,
   currency: 'ج.م',

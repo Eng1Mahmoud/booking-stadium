@@ -10,7 +10,7 @@ import type {
   TimelineSlot,
 } from '@/types'
 
-// Re-exported so existing importers keep working; the definition lives in @/types.
+// Re-exported for existing importers; the definition lives in @/types.
 export type { TimelineSlot }
 
 export const useBookingStore = defineStore('booking', {
@@ -42,10 +42,8 @@ export const useBookingStore = defineStore('booking', {
     },
 
     /**
-     * Loads the selected day and the one after it, then stitches them into a
-     * single timeline: the full day, followed by the next morning up to the
-     * longest bookable range. That is what lets someone start at 11 م and carry
-     * on into 1 ص without changing date.
+     * Stitches the selected day and the next morning into one timeline, which is
+     * what lets someone start at 11 م and play into 1 ص without changing date.
      */
     async fetchAvailability(date: string): Promise<void> {
       this.isLoadingSlots = true

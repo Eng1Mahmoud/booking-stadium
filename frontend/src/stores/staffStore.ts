@@ -3,8 +3,6 @@ import { api, getErrorMessage } from '@/services/api'
 import type { Admin, AdminProfile, AdminRole } from '@/types'
 
 export const useStaffStore = defineStore('staff', {
-  // `staff` needs the annotation: an empty literal would otherwise be inferred
-  // as `never[]`, and nothing could ever be assigned to it.
   state: () => ({
     staff: [] as Admin[],
     isLoading: false,
@@ -25,12 +23,10 @@ export const useStaffStore = defineStore('staff', {
       }
     },
 
-    /** Each mutation refetches rather than patching locally — the server owns the
+    /** Each mutation refetches rather than patching locally: the server owns the
      *  lockout rules, so its list is the only trustworthy view of the outcome.
-     *
-     *  Underscored because it is an internal helper: an options store exposes
-     *  every action, so the prefix is the only way left to say "not for callers".
-     */
+     *  Underscored because an options store exposes every action, leaving the
+     *  prefix as the only way to say "not for callers". */
     async _run(action: () => Promise<unknown>): Promise<boolean> {
       this.error = null
       try {
