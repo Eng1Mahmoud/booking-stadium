@@ -1,16 +1,37 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useStaffStore } from '@/stores/staffStore'
+import { computed, ref, toRef } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
+import { useStaff } from '@/queries/useAdminData'
+import {
+  useCreateStaff,
+  useResetStaffPassword,
+  useSetStaffActive,
+  useSetStaffRole,
+  useUpdateStaffProfile,
+} from '@/queries/mutations'
+import { getErrorMessage } from '@/services/api'
 import { formatArabicDateTime } from '@/utils/date'
 import type { Admin, AdminRole } from '@/types'
 
-const staffStore = useStaffStore()
 const authStore = useAuthStore()
+
+const { data, isPending, error: loadError } = useStaff(toRef(() => authStore.isSuperAdmin))
+const staff = computed(() => data.value ?? [])
+
+const createStaff = useCreateStaff()
+const updateProfile = useUpdateStaffProfile()
+const resetStaffPassword = useResetStaffPassword()
+const setRole = useSetStaffRole()
+const setActive = useSetStaffActive()
 
 const showAddForm = ref(false)
 const isSubmitting = ref(false)
+/** Local: a validation message this component produces itself. Server failures
+ *  come from whichever mutation raised them, so one form's error can no longer
+ *  appear under another's. */
 const formError = ref<string | null>(null)
+
+const listError = computed(() => (loadError.value ? getErrorMessage(loadError.value) : null))
 
 const BLANK_STAFF = { username: '', password: '', fullName: '', phone: '', role: 'admin' as AdminRole }
 const newStaff = ref({ ...BLANK_STAFF })
@@ -30,7 +51,7 @@ const ROLE_LABEL: Record<AdminRole, string> = {
 
 const PHONE_PATTERN = /^\+?[0-9]{8,15}$/
 
-const activeCount = computed(() => staffStore.staff.filter((member) => member.isActive).length)
+const activeCount = computed(() => staff.value.filter((member) => member.isActive).length)
 
 function isSelf(member: Admin): boolean {
   return member.username === authStore.username
@@ -74,20 +95,20 @@ async function submitNewStaff() {
   }
 
   isSubmitting.value = true
-  const ok = await staffStore.createStaff({
-    username: username.trim().toLowerCase(),
-    password,
-    fullName: fullName.trim(),
-    phone: phone.trim(),
-    role: newStaff.value.role,
-  })
-  isSubmitting.value = false
-
-  if (ok) {
+  try {
+    await createStaff.mutateAsync({
+      username: username.trim().toLowerCase(),
+      password,
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      role: newStaff.value.role,
+    })
     newStaff.value = { ...BLANK_STAFF }
     showAddForm.value = false
-  } else {
-    formError.value = staffStore.error
+  } catch (err) {
+    formError.value = getErrorMessage(err)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -100,14 +121,17 @@ async function submitProfile(id: string) {
   }
 
   isSubmitting.value = true
-  const ok = await staffStore.updateProfile(id, {
-    fullName: profileDraft.value.fullName.trim(),
-    phone,
-  })
-  isSubmitting.value = false
-
-  if (ok) openRow.value = null
-  else formError.value = staffStore.error
+  try {
+    await updateProfile.mutateAsync({
+      id,
+      patch: { fullName: profileDraft.value.fullName.trim(), phone },
+    })
+    openRow.value = null
+  } catch (err) {
+    formError.value = getErrorMessage(err)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 async function submitReset(id: string) {
@@ -117,18 +141,16 @@ async function submitReset(id: string) {
     return
   }
   isSubmitting.value = true
-  const ok = await staffStore.resetPassword(id, resetPassword.value)
-  isSubmitting.value = false
-
-  if (ok) {
+  try {
+    await resetStaffPassword.mutateAsync({ id, password: resetPassword.value })
     openRow.value = null
     resetPassword.value = ''
-  } else {
-    formError.value = staffStore.error
+  } catch (err) {
+    formError.value = getErrorMessage(err)
+  } finally {
+    isSubmitting.value = false
   }
 }
-
-onMounted(staffStore.fetchStaff)
 </script>
 
 <template>
@@ -137,7 +159,7 @@ onMounted(staffStore.fetchStaff)
       <p class="text-sm text-chalk-400">
         <span class="font-bold tabular-nums text-chalk-50">{{ activeCount }}</span>
         نشط من
-        <span class="font-bold tabular-nums text-chalk-50">{{ staffStore.staff.length }}</span>
+        <span class="font-bold tabular-nums text-chalk-50">{{ staff.length }}</span>
         حساب. المدير العام وحده يضيف الحسابات أو يوقفها.
       </p>
       <button
@@ -247,19 +269,19 @@ onMounted(staffStore.fetchStaff)
     </form>
 
     <p
-      v-if="staffStore.error && !showAddForm && !openRow"
+      v-if="listError && !showAddForm && !openRow"
       class="mt-4 rounded-md bg-card-red-dim/40 px-4 py-3 text-sm text-card-red"
     >
-      {{ staffStore.error }}
+      {{ listError }}
     </p>
 
-    <div v-if="staffStore.isLoading" class="mt-6 space-y-2" aria-hidden="true">
+    <div v-if="isPending" class="mt-6 space-y-2" aria-hidden="true">
       <div v-for="n in 3" :key="n" class="h-24 rounded-lg bg-turf-800/60 animate-pulse" />
     </div>
 
     <ul v-else class="mt-6 space-y-2">
       <li
-        v-for="member in staffStore.staff"
+        v-for="member in staff"
         :key="member._id"
         class="overflow-hidden rounded-lg border"
         :class="
@@ -353,10 +375,10 @@ onMounted(staffStore.fetchStaff)
                 type="button"
                 class="text-chalk-400 transition-colors hover:text-chalk-50 cursor-pointer"
                 @click="
-                  staffStore.setRole(
-                    member._id,
-                    member.role === 'superadmin' ? 'admin' : 'superadmin',
-                  )
+                  setRole.mutate({
+                    id: member._id,
+                    role: member.role === 'superadmin' ? 'admin' : 'superadmin',
+                  })
                 "
               >
                 {{ member.role === 'superadmin' ? 'خفض لموظف' : 'ترقية لمدير عام' }}
@@ -369,7 +391,7 @@ onMounted(staffStore.fetchStaff)
                     ? 'text-card-red hover:text-card-red/80'
                     : 'text-grass-400 hover:text-grass-500'
                 "
-                @click="staffStore.setActive(member._id, !member.isActive)"
+                @click="setActive.mutate({ id: member._id, isActive: !member.isActive })"
               >
                 {{ member.isActive ? 'إيقاف' : 'تفعيل' }}
               </button>

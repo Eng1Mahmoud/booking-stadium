@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import dayjs from 'dayjs'
-import { useBookingStore } from '@/stores/bookingStore'
 import AdminNav from '@/components/AdminNav.vue'
 import BookingsList from '@/components/BookingsList.vue'
 import DatePicker from '@/components/DatePicker.vue'
@@ -11,11 +10,19 @@ import BlockRangePicker from '@/components/BlockRangePicker.vue'
 import KickoffPicker from '@/components/KickoffPicker.vue'
 import { formatArabicDate } from '@/utils/date'
 import { buildAgenda, summariseDay } from '@/utils/agenda'
+import { useSiteConfig } from '@/queries/useSiteConfig'
+import { useAvailability } from '@/queries/useAvailability'
+import { useAdminBookings, useBlockedSlots } from '@/queries/useAdminData'
+import {
+  useBlockSlot,
+  useCancelBooking,
+  useCreateManualBooking,
+  useUnblockSlot,
+} from '@/queries/mutations'
+import { getErrorMessage } from '@/services/api'
 import { endOptionsFor } from '@/utils/availability'
 import { MINUTES_PER_DAY, toMinutes, toTimeString } from '@/utils/time'
 import type { Booking } from '@/types'
-
-const bookingStore = useBookingStore()
 
 const today = dayjs().format('YYYY-MM-DD')
 const selectedDate = ref(today)
@@ -40,10 +47,25 @@ const formError = ref<string | null>(null)
 const manualNameInput = ref<HTMLInputElement | null>(null)
 
 // Booking rules come from the server so this panel can't drift from the validator.
-const slotMinutes = computed(() => bookingStore.config?.slotMinutes ?? 30)
-const minMinutes = computed(() => bookingStore.config?.minBookingMinutes ?? 60)
-const maxMinutes = computed(() => bookingStore.config?.maxBookingMinutes ?? 360)
-const currency = computed(() => bookingStore.config?.currency ?? '')
+const { data: config } = useSiteConfig()
+// Every query keys off the same date ref, so changing the day refetches all
+// three without a watcher.
+const { slots, timeline, isPending: isLoadingSlots } = useAvailability(selectedDate)
+const { data: bookingsData, isPending: isLoadingBookings } = useAdminBookings(selectedDate)
+const { data: blockedData } = useBlockedSlots(selectedDate)
+
+const adminBookings = computed(() => bookingsData.value ?? [])
+const blockedSlots = computed(() => blockedData.value ?? [])
+
+const createManualBooking = useCreateManualBooking()
+const blockSlot = useBlockSlot()
+const cancelBooking = useCancelBooking()
+const unblockSlot = useUnblockSlot()
+
+const slotMinutes = computed(() => config.value?.slotMinutes ?? 30)
+const minMinutes = computed(() => config.value?.minBookingMinutes ?? 60)
+const maxMinutes = computed(() => config.value?.maxBookingMinutes ?? 360)
+const currency = computed(() => config.value?.currency ?? '')
 
 /** Staff take bookings outside working hours by arrangement; players can't. */
 const rules = computed(() => ({
@@ -56,9 +78,9 @@ const rules = computed(() => ({
 const agendaBands = computed(() =>
   buildAgenda(
     selectedDate.value,
-    bookingStore.slots,
-    bookingStore.adminBookings,
-    bookingStore.blockedSlots,
+    slots.value,
+    adminBookings.value,
+    blockedSlots.value,
   ),
 )
 const dayTotals = computed(() => summariseDay(agendaBands.value, selectedDate.value))
@@ -73,12 +95,6 @@ function selectBlockRange(startHour: number | null, endHour: number | null) {
   blockForm.value.endHour = endHour
 }
 
-function load() {
-  bookingStore.fetchAvailability(selectedDate.value)
-  bookingStore.fetchAdminBookings(selectedDate.value)
-  bookingStore.fetchBlockedSlots(selectedDate.value)
-}
-
 function togglePanel(panel: 'add' | 'block') {
   activePanel.value = activePanel.value === panel ? 'none' : panel
   formError.value = null
@@ -90,7 +106,7 @@ async function submitManualBooking() {
 
   // The picker only offers legal lengths, so there is nothing to re-check but
   // that a slot was chosen at all.
-  const slot = startIndex === null ? null : bookingStore.timeline[startIndex]
+  const slot = startIndex === null ? null : timeline.value[startIndex]
   if (
     !slot ||
     !durationMinutes ||
@@ -102,17 +118,16 @@ async function submitManualBooking() {
   }
 
   isSubmitting.value = true
-  const ok = await bookingStore.createManualBooking({
-    // The start unit owns the booking's date, which may be tomorrow for a match
-    // recorded after midnight.
-    date: slot.date,
-    startTime: slot.startTime,
-    durationMinutes,
-    playerName: playerName.trim(),
-    playerPhone: playerPhone.trim(),
-  })
-  isSubmitting.value = false
-  if (ok) {
+  try {
+    await createManualBooking.mutateAsync({
+      // The start unit owns the booking's date, which may be tomorrow for a match
+      // recorded after midnight.
+      date: slot.date,
+      startTime: slot.startTime,
+      durationMinutes,
+      playerName: playerName.trim(),
+      playerPhone: playerPhone.trim(),
+    })
     manualForm.value = {
       startIndex: null,
       durationMinutes: null,
@@ -120,9 +135,10 @@ async function submitManualBooking() {
       playerPhone: '',
     }
     activePanel.value = 'none'
-    load()
-  } else {
-    formError.value = bookingStore.error
+  } catch (err) {
+    formError.value = getErrorMessage(err)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -135,33 +151,31 @@ async function submitBlock() {
   }
 
   isSubmitting.value = true
-  const ok = await bookingStore.blockSlot({
-    date: selectedDate.value,
-    startTime: toTimeString(startHour * 60),
-    // The last closed hour runs to the top of the next one, so closing 11 م
-    // yields "24:00" — midnight ending the day, which the API accepts and
-    // "00:00" could not express.
-    endTime: toTimeString((endHour + 1) * 60),
-    reason: reason.trim() || undefined,
-  })
-  isSubmitting.value = false
-  if (ok) {
+  try {
+    await blockSlot.mutateAsync({
+      date: selectedDate.value,
+      startTime: toTimeString(startHour * 60),
+      // The last closed hour runs to the top of the next one, so closing 11 م
+      // yields "24:00" — midnight ending the day, which the API accepts and
+      // "00:00" could not express.
+      endTime: toTimeString((endHour + 1) * 60),
+      reason: reason.trim() || undefined,
+    })
     blockForm.value = { startHour: null, endHour: null, reason: '' }
     activePanel.value = 'none'
-    load()
-  } else {
-    formError.value = bookingStore.error
+  } catch (err) {
+    formError.value = getErrorMessage(err)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
-async function handleCancel(booking: Booking) {
-  await bookingStore.cancelBooking(booking._id, selectedDate.value)
-  load()
+function handleCancel(booking: Booking) {
+  cancelBooking.mutate(booking._id)
 }
 
-async function handleUnblock(id: string) {
-  await bookingStore.unblockSlot(id, selectedDate.value)
-  load()
+function handleUnblock(id: string) {
+  unblockSlot.mutate(id)
 }
 
 /**
@@ -170,14 +184,14 @@ async function handleUnblock(id: string) {
  * a length the server would refuse for reasons the user can't see.
  */
 function handlePickFree({ startTime, endTime }: { startTime: string; endTime: string }) {
-  const startIndex = bookingStore.timeline.findIndex(
+  const startIndex = timeline.value.findIndex(
     (slot) => !slot.isNextDay && slot.startTime === startTime,
   )
   if (startIndex === -1) return
 
   const bandMinutes =
     (endTime === '24:00' ? MINUTES_PER_DAY : toMinutes(endTime)) - toMinutes(startTime)
-  const options = endOptionsFor(bookingStore.timeline, startIndex, rules.value)
+  const options = endOptionsFor(timeline.value, startIndex, rules.value)
   const fit = [...options].reverse().find((option) => option.durationMinutes <= bandMinutes)
 
   manualForm.value = {
@@ -209,11 +223,6 @@ function handleBlockRange({ startTime, endTime }: { startTime: string; endTime: 
   formError.value = null
 }
 
-watch(selectedDate, load)
-onMounted(async () => {
-  await bookingStore.fetchConfig()
-  load()
-})
 </script>
 
 <template>
@@ -230,12 +239,12 @@ onMounted(async () => {
           <DatePicker v-model="selectedDate" :days-ahead="365" />
 
           <p
-            v-if="bookingStore.config"
+            v-if="config"
             class="mt-4 rounded-lg border border-turf-700/60 bg-turf-900/60 px-4 py-3 text-sm text-chalk-400"
           >
             سعر الساعة
             <span class="font-bold text-chalk-50">
-              {{ bookingStore.config.pricePerHour }} {{ bookingStore.config.currency }}
+              {{ config.pricePerHour }} {{ config.currency }}
             </span>
           </p>
         </div>
@@ -252,7 +261,7 @@ onMounted(async () => {
           </div>
 
           <DayTotals
-            v-if="!bookingStore.isLoadingAdminData"
+            v-if="!isLoadingBookings"
             class="mt-4"
             :totals="dayTotals"
             :currency="currency"
@@ -292,15 +301,15 @@ onMounted(async () => {
             @submit.prevent="submitManualBooking"
           >
             <KickoffPicker
-              :timeline="bookingStore.timeline"
+              :timeline="timeline"
               :start-index="manualForm.startIndex"
               :duration-minutes="manualForm.durationMinutes"
               :slot-minutes="slotMinutes"
               :min-minutes="minMinutes"
               :max-minutes="maxMinutes"
-              :price-per-hour="bookingStore.config?.pricePerHour ?? 0"
+              :price-per-hour="config?.pricePerHour ?? 0"
               :currency="currency"
-              :loading="bookingStore.isLoadingSlots"
+              :loading="isLoadingSlots"
               allow-closed
               @select="selectManualSlot"
             />
@@ -350,7 +359,7 @@ onMounted(async () => {
             @submit.prevent="submitBlock"
           >
             <BlockRangePicker
-              :slots="bookingStore.slots"
+              :slots="slots"
               :start-hour="blockForm.startHour"
               :end-hour="blockForm.endHour"
               @update:range="selectBlockRange"
@@ -387,7 +396,7 @@ onMounted(async () => {
               :bands="agendaBands"
               :date="selectedDate"
               :currency="currency"
-              :loading="bookingStore.isLoadingSlots || bookingStore.isLoadingAdminData"
+              :loading="isLoadingSlots || isLoadingBookings"
               @cancel="handleCancel"
               @unblock="handleUnblock"
               @pick-free="handlePickFree"
@@ -399,13 +408,13 @@ onMounted(async () => {
              cancelled bookings would otherwise disappear without a trace. -->
           <details class="mt-8 rounded-lg border border-turf-700/60 bg-turf-900/40 px-4 py-3">
             <summary class="cursor-pointer text-sm font-medium text-chalk-300">
-              كل حجوزات اليوم ({{ bookingStore.adminBookings.length }})
+              كل حجوزات اليوم ({{ adminBookings.length }})
             </summary>
             <div class="mt-4">
               <BookingsList
-                :bookings="bookingStore.adminBookings"
+                :bookings="adminBookings"
                 :currency="currency"
-                :loading="bookingStore.isLoadingAdminData"
+                :loading="isLoadingBookings"
                 @cancel="handleCancel"
               />
             </div>

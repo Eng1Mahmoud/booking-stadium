@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AdminNav from '@/components/AdminNav.vue'
-import { useBookingStore } from '@/stores/bookingStore'
+import { useSiteConfig } from '@/queries/useSiteConfig'
+import { useUpdateSettings } from '@/queries/mutations'
+import { getErrorMessage } from '@/services/api'
 import {
   MINUTES_PER_DAY,
   SLOT_MINUTES,
@@ -12,25 +14,31 @@ import {
 } from '@/utils/time'
 import { formatMoney, priceFor } from '@/utils/money'
 
-const bookingStore = useBookingStore()
+const { data: config } = useSiteConfig()
+// Two separate mutations, so a failed price save can't put its message under the
+// working-hours form.
+const savePrice = useUpdateSettings()
+const saveWorkingHours = useUpdateSettings()
 
 const priceDraft = ref<number | null>(null)
 const currencyDraft = ref('')
-const isSaving = ref(false)
 const message = ref<string | null>(null)
-const errorMessage = ref<string | null>(null)
+const errorMessage = computed(() =>
+  savePrice.error.value ? getErrorMessage(savePrice.error.value) : null,
+)
 
 const opensDraft = ref('')
 const closesDraft = ref('')
-const isSavingHours = ref(false)
 const hoursMessage = ref<string | null>(null)
-const hoursError = ref<string | null>(null)
+const hoursError = computed(() =>
+  saveWorkingHours.error.value ? getErrorMessage(saveWorkingHours.error.value) : null,
+)
 
-const saved = computed(() => bookingStore.config)
+const saved = config
 
 const isDirty = computed(
   () =>
-    saved.value !== null &&
+    !!saved.value &&
     (priceDraft.value !== saved.value.pricePerHour ||
       currencyDraft.value.trim() !== saved.value.currency),
 )
@@ -65,7 +73,7 @@ const closeOptions = [...gridTimes.slice(1), '24:00']
 
 const hoursDirty = computed(
   () =>
-    saved.value !== null &&
+    !!saved.value &&
     (opensDraft.value !== saved.value.opensAt || closesDraft.value !== saved.value.closesAt),
 )
 
@@ -97,53 +105,55 @@ function reset() {
   priceDraft.value = saved.value?.pricePerHour ?? null
   currencyDraft.value = saved.value?.currency ?? ''
   message.value = null
-  errorMessage.value = null
+  savePrice.reset()
 }
 
 function resetHours() {
   opensDraft.value = saved.value?.opensAt ?? '00:00'
   closesDraft.value = saved.value?.closesAt ?? '24:00'
   hoursMessage.value = null
-  hoursError.value = null
+  saveWorkingHours.reset()
 }
 
 async function saveHours() {
   if (!hoursValid.value) return
-  isSavingHours.value = true
   hoursMessage.value = null
-  hoursError.value = null
 
-  const ok = await bookingStore.updateSettings({
-    opensAt: opensDraft.value,
-    closesAt: closesDraft.value,
-  })
-
-  isSavingHours.value = false
-  if (ok) hoursMessage.value = 'تم حفظ مواعيد العمل.'
-  else hoursError.value = bookingStore.error
+  try {
+    await saveWorkingHours.mutateAsync({
+      opensAt: opensDraft.value,
+      closesAt: closesDraft.value,
+    })
+    hoursMessage.value = 'تم حفظ مواعيد العمل.'
+  } catch {
+    // Shown through saveWorkingHours.error.
+  }
 }
 
 async function save() {
   if (!isValid.value) return
-  isSaving.value = true
   message.value = null
-  errorMessage.value = null
 
-  const ok = await bookingStore.updateSettings({
-    pricePerHour: Math.round(priceDraft.value!),
-    currency: currencyDraft.value.trim(),
-  })
-
-  isSaving.value = false
-  if (ok) message.value = 'تم حفظ السعر.'
-  else errorMessage.value = bookingStore.error
+  try {
+    await savePrice.mutateAsync({
+      pricePerHour: Math.round(priceDraft.value!),
+      currency: currencyDraft.value.trim(),
+    })
+    message.value = 'تم حفظ السعر.'
+  } catch {
+    // Shown through savePrice.error.
+  }
 }
 
-onMounted(async () => {
-  await bookingStore.fetchConfig()
-  reset()
-  resetHours()
-})
+// The drafts seed from the cache, which may arrive after mount.
+watch(
+  config,
+  () => {
+    reset()
+    resetHours()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -202,10 +212,10 @@ onMounted(async () => {
         <div class="mt-5 flex items-center gap-3">
           <button
             type="submit"
-            :disabled="isSaving || !isValid || !isDirty"
+            :disabled="savePrice.isPending.value || !isValid || !isDirty"
             class="inline-flex items-center justify-center rounded-md bg-grass-500 px-5 py-2.5 font-medium text-turf-950 transition-colors hover:bg-grass-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
           >
-            {{ isSaving ? 'جارٍ الحفظ…' : 'حفظ السعر' }}
+            {{ savePrice.isPending.value ? 'جارٍ الحفظ…' : 'حفظ السعر' }}
           </button>
           <button
             v-if="isDirty"
@@ -315,10 +325,10 @@ onMounted(async () => {
         <div class="mt-5 flex items-center gap-3">
           <button
             type="submit"
-            :disabled="isSavingHours || !hoursValid || !hoursDirty"
+            :disabled="saveWorkingHours.isPending.value || !hoursValid || !hoursDirty"
             class="inline-flex items-center justify-center rounded-md bg-grass-500 px-5 py-2.5 font-medium text-turf-950 transition-colors hover:bg-grass-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
           >
-            {{ isSavingHours ? 'جارٍ الحفظ…' : 'حفظ المواعيد' }}
+            {{ saveWorkingHours.isPending.value ? 'جارٍ الحفظ…' : 'حفظ المواعيد' }}
           </button>
           <button
             v-if="hoursDirty"

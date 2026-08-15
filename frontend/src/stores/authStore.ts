@@ -11,6 +11,24 @@ interface SessionPayload {
   phone?: string
 }
 
+/**
+ * Shared by `login` and `restoreSession`, which receive the same payload and owe
+ * the state the same four fields — the point being that a field added later
+ * can't be wired into one path and forgotten in the other.
+ *
+ * A module function rather than an action: an options store publishes every
+ * action, so anything living in `actions` is callable from any component. This
+ * isn't exported, so nothing outside this file can reach it at all.
+ */
+function sessionState(data: SessionPayload) {
+  return {
+    username: data.username,
+    role: data.role,
+    fullName: data.fullName ?? null,
+    phone: data.phone ?? null,
+  }
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     username: null as string | null,
@@ -27,23 +45,8 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    /**
-     * A hint, not a verdict: the session cookie is httpOnly, so this can only
-     * tell that a login happened on this browser. `restoreSession` confirms it.
-     *
-     * An action rather than a getter because a cookie is not reactive — a getter
-     * would cache the first answer and go on reporting a cleared session.
-     */
     isAuthenticated(): boolean {
       return Boolean(this.role ?? manageCookie.get())
-    },
-
-    _applySession(data: SessionPayload): void {
-      this.username = data.username
-      this.role = data.role
-      this.fullName = data.fullName ?? null
-      this.phone = data.phone ?? null
-      manageCookie.set(data.csrfToken)
     },
 
     async login(usernameInput: string, password: string): Promise<boolean> {
@@ -56,7 +59,8 @@ export const useAuthStore = defineStore('auth', {
           username: usernameInput,
           password,
         })
-        this._applySession(data)
+        this.$patch(sessionState(data))
+        manageCookie.set(data.csrfToken)
         return true
       } catch (err) {
         this.error = getErrorMessage(err)
@@ -76,7 +80,8 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const { data } = await api.get<SessionPayload>('/auth/me')
-        this._applySession(data)
+        this.$patch(sessionState(data))
+        manageCookie.set(data.csrfToken)
         return true
       } catch {
         await this.logout()

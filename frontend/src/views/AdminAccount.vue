@@ -2,10 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import AdminNav from '@/components/AdminNav.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { useStaffStore } from '@/stores/staffStore'
+import { useChangeOwnPassword, useUpdateOwnProfile } from '@/queries/mutations'
+import { getErrorMessage } from '@/services/api'
 
 const authStore = useAuthStore()
-const staffStore = useStaffStore()
+const updateOwnProfile = useUpdateOwnProfile()
+const changeOwnPassword = useChangeOwnPassword()
 
 const ROLE_LABEL = { superadmin: 'مدير عام', admin: 'موظف' } as const
 const PHONE_PATTERN = /^\+?[0-9]{8,15}$/
@@ -34,15 +36,15 @@ async function saveProfile() {
 
   const patch = { fullName: profile.value.fullName.trim(), phone }
   isSavingProfile.value = true
-  const ok = await staffStore.updateOwnProfile(patch)
-  isSavingProfile.value = false
-
-  if (ok) {
+  try {
+    await updateOwnProfile.mutateAsync(patch)
     // Keeps the header's greeting in step without a round trip.
     authStore.setProfile(patch)
     profileSaved.value = true
-  } else {
-    profileError.value = staffStore.error
+  } catch (err) {
+    profileError.value = getErrorMessage(err)
+  } finally {
+    isSavingProfile.value = false
   }
 }
 
@@ -54,8 +56,6 @@ const touched = ref(false)
 const isSubmitting = ref(false)
 const succeeded = ref(false)
 
-// Local, not staffStore.error: that ref is shared with StaffManager and would
-// surface a stale message from the other screen.
 const formError = ref<string | null>(null)
 
 const currentError = computed(() => {
@@ -86,22 +86,24 @@ async function handleSubmit() {
   if (currentError.value || newError.value || confirmError.value) return
 
   isSubmitting.value = true
-  const ok = await staffStore.changeOwnPassword(currentPassword.value, newPassword.value)
-  isSubmitting.value = false
-
-  if (ok) {
+  try {
+    await changeOwnPassword.mutateAsync({
+      currentPassword: currentPassword.value,
+      newPassword: newPassword.value,
+    })
     succeeded.value = true
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
     touched.value = false
-  } else {
-    formError.value = staffStore.error
+  } catch (err) {
+    formError.value = getErrorMessage(err)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
 onMounted(() => {
-  staffStore.error = null
   profile.value = { fullName: authStore.fullName ?? '', phone: authStore.phone ?? '' }
 })
 </script>

@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { useBookingStore } from '@/stores/bookingStore'
 import DatePicker from '@/components/DatePicker.vue'
 import KickoffPicker from '@/components/KickoffPicker.vue'
 import BookingForm from '@/components/BookingForm.vue'
+import { useSiteConfig } from '@/queries/useSiteConfig'
+import { useAvailability } from '@/queries/useAvailability'
+import { useCreateBooking } from '@/queries/mutations'
+import { getErrorMessage } from '@/services/api'
 import { formatArabicDate } from '@/utils/date'
 import { isSpanFree } from '@/utils/availability'
 import { formatMoney, priceFor } from '@/utils/money'
 import { MINUTES_PER_DAY, formatTime12h, toMinutes, toTimeString } from '@/utils/time'
-
-const bookingStore = useBookingStore()
 
 const today = dayjs().format('YYYY-MM-DD')
 const selectedDate = ref(today)
@@ -19,15 +20,27 @@ const selectedDuration = ref<number | null>(null)
 const justConfirmed = ref(false)
 const confirmedSummary = ref<{ range: string; date: string; price: number } | null>(null)
 
-const slotMinutes = computed(() => bookingStore.config?.slotMinutes ?? 30)
-const minMinutes = computed(() => bookingStore.config?.minBookingMinutes ?? 60)
-const maxMinutes = computed(() => bookingStore.config?.maxBookingMinutes ?? 360)
-const currency = computed(() => bookingStore.config?.currency ?? '')
+const { data: config } = useSiteConfig()
+// The date is a ref, so the query refetches on its own — no watcher to keep in step.
+const { timeline, isPending, error: loadError } = useAvailability(selectedDate)
+const createBooking = useCreateBooking()
+
+const slotMinutes = computed(() => config.value?.slotMinutes ?? 30)
+const minMinutes = computed(() => config.value?.minBookingMinutes ?? 60)
+const maxMinutes = computed(() => config.value?.maxBookingMinutes ?? 360)
+const currency = computed(() => config.value?.currency ?? '')
+
+// The load error and the submit error are separate now, so a failed booking
+// can't blank the grid and a failed fetch can't sit under the form.
+const errorMessage = computed(() => {
+  const err = createBooking.error.value ?? loadError.value
+  return err ? getErrorMessage(err) : null
+})
 
 const formattedDate = computed(() => formatArabicDate(selectedDate.value))
 
 const startSlot = computed(() =>
-  startIndex.value === null ? null : (bookingStore.timeline[startIndex.value] ?? null),
+  startIndex.value === null ? null : (timeline.value[startIndex.value] ?? null),
 )
 
 const durationMinutes = computed(() => selectedDuration.value ?? 0)
@@ -45,19 +58,11 @@ const rangeLabel = computed(() =>
     : null,
 )
 
-const price = computed(() =>
-  priceFor(durationMinutes.value, bookingStore.config?.pricePerHour ?? 0),
-)
+const price = computed(() => priceFor(durationMinutes.value, config.value?.pricePerHour ?? 0))
 
 function resetSelection() {
   startIndex.value = null
   selectedDuration.value = null
-}
-
-function load() {
-  resetSelection()
-  justConfirmed.value = false
-  bookingStore.fetchAvailability(selectedDate.value)
 }
 
 function handleSelect(start: number, duration: number | null) {
@@ -75,38 +80,35 @@ async function handleConfirm(payload: { playerName: string; playerPhone: string 
     price: price.value,
   }
 
-  const ok = await bookingStore.createBooking({
-    // The start unit owns the booking's date — which may be tomorrow if the
-    // player started after midnight in the overhang section.
-    date: startSlot.value.date,
-    startTime: startSlot.value.startTime,
-    durationMinutes: durationMinutes.value,
-    ...payload,
-  })
-
-  if (ok) {
+  try {
+    await createBooking.mutateAsync({
+      // The start unit owns the booking's date — which may be tomorrow if the
+      // player started after midnight in the overhang section.
+      date: startSlot.value.date,
+      startTime: startSlot.value.startTime,
+      durationMinutes: durationMinutes.value,
+      ...payload,
+    })
     confirmedSummary.value = summary
     resetSelection()
     justConfirmed.value = true
+  } catch {
+    // Surfaced through createBooking.error; the selection stays for a retry.
   }
 }
 
-watch(selectedDate, load)
+watch(selectedDate, () => {
+  resetSelection()
+  justConfirmed.value = false
+  createBooking.reset()
+})
 
 // Someone else may take the slot while this page sits open; drop a selection
 // that has stopped being bookable rather than failing at submit.
-watch(
-  () => bookingStore.timeline,
-  () => {
-    if (startIndex.value === null || !selectedDuration.value) return
-    const units = selectedDuration.value / slotMinutes.value
-    if (!isSpanFree(bookingStore.timeline, startIndex.value, units)) resetSelection()
-  },
-)
-
-onMounted(async () => {
-  await bookingStore.fetchConfig()
-  load()
+watch(timeline, () => {
+  if (startIndex.value === null || !selectedDuration.value) return
+  const units = selectedDuration.value / slotMinutes.value
+  if (!isSpanFree(timeline.value, startIndex.value, units)) resetSelection()
 })
 </script>
 
@@ -123,12 +125,12 @@ onMounted(async () => {
         <DatePicker v-model="selectedDate" />
 
         <p
-          v-if="bookingStore.config"
+          v-if="config"
           class="mt-4 rounded-lg border border-turf-700/60 bg-turf-900/60 px-4 py-3 text-sm text-chalk-400"
         >
           السعر
           <span class="font-bold text-chalk-50">
-            {{ bookingStore.config.pricePerHour }} {{ currency }}
+            {{ config.pricePerHour }} {{ currency }}
           </span>
           للساعة
         </p>
@@ -141,10 +143,10 @@ onMounted(async () => {
         </h2>
 
         <p
-          v-if="bookingStore.error && !startSlot"
+          v-if="errorMessage && !startSlot"
           class="mb-3 rounded-md bg-card-red-dim/40 px-4 py-3 text-sm text-card-red"
         >
-          {{ bookingStore.error }}
+          {{ errorMessage }}
         </p>
 
         <div
@@ -163,15 +165,15 @@ onMounted(async () => {
         </div>
 
         <KickoffPicker
-          :timeline="bookingStore.timeline"
+          :timeline="timeline"
           :start-index="startIndex"
           :duration-minutes="selectedDuration"
           :slot-minutes="slotMinutes"
           :min-minutes="minMinutes"
           :max-minutes="maxMinutes"
-          :price-per-hour="bookingStore.config?.pricePerHour ?? 0"
+          :price-per-hour="config?.pricePerHour ?? 0"
           :currency="currency"
-          :loading="bookingStore.isLoadingSlots"
+          :loading="isPending"
           @select="handleSelect"
         />
 
@@ -180,8 +182,8 @@ onMounted(async () => {
           <BookingForm
             :range-label="rangeLabel"
             :date="formattedDate"
-            :submitting="bookingStore.isSubmittingBooking"
-            :server-error="bookingStore.error"
+            :submitting="createBooking.isPending.value"
+            :server-error="errorMessage"
             @confirm="handleConfirm"
             @cancel="resetSelection"
           />
