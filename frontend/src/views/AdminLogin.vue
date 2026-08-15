@@ -81,7 +81,7 @@ async function handleSubmit() {
       class="relative isolate hidden overflow-hidden rounded-xl border border-turf-700/60 bg-turf-900/40 p-10 lg:block"
     >
       <svg
-        class="markings"
+        class="mask-card absolute inset-0 h-full w-full text-chalk-50 opacity-[0.07]"
         viewBox="0 0 60 68"
         preserveAspectRatio="xMidYMid slice"
         aria-hidden="true"
@@ -108,15 +108,3 @@ async function handleSubmit() {
     </div>
   </section>
 </template>
-
-<style scoped>
-.markings {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  color: var(--color-chalk-50);
-  opacity: 0.07;
-  mask-image: radial-gradient(ellipse 80% 75% at 50% 50%, #000 30%, transparent 100%);
-}
-</style>

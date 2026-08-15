@@ -50,6 +50,54 @@
   --color-card-red-dim: #6a2325;
 
   --color-floodlight-100: #fff6d8;
+
+  /* Keyframes can't be expressed as utilities, so they live here rather than in
+     a component's <style> block — which is what turns them into `animate-*`
+     classes any template can use. */
+  --animate-pitch-in: pitch-in 1.4s ease-out both;
+  --animate-reveal-up: reveal-up 0.7s ease-out both;
+
+  @keyframes pitch-in {
+    from {
+      opacity: 0;
+      transform: scale(1.04);
+    }
+    to {
+      opacity: 0.09;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* Masks and multi-stop radials read far better as CSS than as a bracketed
+   arbitrary value, so they are named utilities instead. Both fade a decorative
+   SVG out at its edges, so the markings read as atmosphere rather than clip art. */
+@utility mask-pitch {
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 35%, transparent 100%);
+}
+
+@utility mask-card {
+  mask-image: radial-gradient(ellipse 80% 75% at 50% 50%, #000 30%, transparent 100%);
+}
+
+/** The floodlight spill above the hero. */
+@utility floodlight-bloom {
+  background: radial-gradient(
+    ellipse 55% 100% at 50% 0%,
+    --alpha(var(--color-floodlight-100) / 13%),
+    transparent 70%
+  );
 }
 
 body {

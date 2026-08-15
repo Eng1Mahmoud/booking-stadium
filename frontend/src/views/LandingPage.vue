@@ -30,12 +30,18 @@ const FEATURES = [
 
 <template>
   <div>
-    <!-- Hero: the pitch itself, seen from the floodlights. -->
-    <section class="hero relative isolate overflow-hidden">
-      <div class="bloom" aria-hidden="true" />
+    <!-- Hero: the pitch itself, seen from the floodlights. The gradient anchors
+         the bloom and lets the pitch bleed past the content column. -->
+    <section
+      class="relative isolate overflow-hidden bg-linear-to-b from-turf-800/55 to-transparent to-70%"
+    >
+      <div
+        class="floodlight-bloom pointer-events-none absolute inset-x-0 top-[-30%] h-[90%]"
+        aria-hidden="true"
+      />
 
       <svg
-        class="pitch"
+        class="mask-pitch animate-pitch-in absolute inset-0 h-full w-full text-chalk-50 opacity-[0.09]"
         viewBox="0 0 105 68"
         preserveAspectRatio="xMidYMid slice"
         aria-hidden="true"
@@ -62,25 +68,23 @@ const FEATURES = [
       </svg>
 
       <div class="relative mx-auto max-w-5xl px-5 py-24 text-center sm:py-32">
-        <p class="reveal text-xs font-semibold text-grass-400" style="--delay: 0.15s">
+        <p class="animate-reveal-up text-xs font-semibold text-grass-400 [animation-delay:0.15s]">
           ملعب واحد · عشب صناعي · إضاءة ليلية
         </p>
 
         <h1
-          class="reveal mt-4 font-display text-5xl font-black leading-[1.15] text-chalk-50 sm:text-7xl"
-          style="--delay: 0.28s"
+          class="animate-reveal-up mt-4 font-display text-5xl font-black leading-[1.15] text-chalk-50 [animation-delay:0.28s] sm:text-7xl"
         >
           احجز الملعب<br />الليلة
         </h1>
 
         <p
-          class="reveal mx-auto mt-6 max-w-lg text-lg leading-relaxed text-chalk-300"
-          style="--delay: 0.42s"
+          class="animate-reveal-up mx-auto mt-6 max-w-lg text-lg leading-relaxed text-chalk-300 [animation-delay:0.42s]"
         >
           اختر اليوم والوقت، اكتب اسمك ورقمك، وتعال العب. بدون حساب وبدون دفع مقدّم.
         </p>
 
-        <div class="reveal mt-9" style="--delay: 0.56s">
+        <div class="animate-reveal-up mt-9 [animation-delay:0.56s]">
           <RouterLink
             to="/book"
             class="inline-flex items-center justify-center rounded-md bg-grass-500 px-9 py-3.5 text-lg font-bold text-turf-950 shadow-[0_0_32px_-6px_rgba(52,201,122,0.6)] transition-colors hover:bg-grass-400"
@@ -107,7 +111,10 @@ const FEATURES = [
       </div>
     </section>
 
-    <div class="halfway" aria-hidden="true" />
+    <div
+      class="relative mx-auto h-px max-w-5xl bg-turf-700 opacity-60 after:absolute after:top-1/2 after:left-1/2 after:h-9 after:w-9 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:border after:border-turf-700 after:bg-turf-950 after:content-['']"
+      aria-hidden="true"
+    />
 
     <!-- How it works -->
     <section class="mx-auto max-w-5xl px-5 py-16">
@@ -126,7 +133,10 @@ const FEATURES = [
       </ol>
     </section>
 
-    <div class="halfway" aria-hidden="true" />
+    <div
+      class="relative mx-auto h-px max-w-5xl bg-turf-700 opacity-60 after:absolute after:top-1/2 after:left-1/2 after:h-9 after:w-9 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:border after:border-turf-700 after:bg-turf-950 after:content-['']"
+      aria-hidden="true"
+    />
 
     <!-- On the pitch -->
     <section class="mx-auto max-w-5xl px-5 py-16">
@@ -164,85 +174,3 @@ const FEATURES = [
     </section>
   </div>
 </template>
-
-<style scoped>
-.hero {
-  /* Anchors the floodlight bloom and lets the pitch bleed past the content column. */
-  background: linear-gradient(180deg, rgba(18, 52, 32, 0.55) 0%, transparent 70%);
-}
-
-.pitch {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  color: var(--color-chalk-50);
-  opacity: 0.09;
-  /* Fades the markings out at the edges so the diagram reads as atmosphere, not clip art. */
-  mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 35%, transparent 100%);
-  animation: pitch-in 1.4s ease-out both;
-}
-
-.bloom {
-  position: absolute;
-  inset-inline: 0;
-  top: -30%;
-  height: 90%;
-  background: radial-gradient(
-    ellipse 55% 100% at 50% 0%,
-    rgba(255, 246, 216, 0.13),
-    transparent 70%
-  );
-  pointer-events: none;
-}
-
-/* The halfway line, carried out of the hero as the page's divider. */
-.halfway {
-  position: relative;
-  height: 1px;
-  max-width: 64rem;
-  margin-inline: auto;
-  background: var(--color-turf-700);
-  opacity: 0.6;
-}
-
-.halfway::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2.25rem;
-  height: 2.25rem;
-  transform: translate(-50%, -50%);
-  border: 1px solid var(--color-turf-700);
-  border-radius: 50%;
-  background: var(--color-turf-950);
-}
-
-.reveal {
-  animation: reveal-up 0.7s ease-out both;
-  animation-delay: var(--delay, 0s);
-}
-
-@keyframes pitch-in {
-  from {
-    opacity: 0;
-    transform: scale(1.04);
-  }
-  to {
-    opacity: 0.09;
-    transform: scale(1);
-  }
-}
-
-@keyframes reveal-up {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-</style>
